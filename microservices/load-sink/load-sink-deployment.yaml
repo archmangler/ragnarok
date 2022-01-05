@@ -1,0 +1,80 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-sink
+  namespace: ragnarok
+spec:
+  selector:
+    matchLabels:
+      app: load-sink
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: load-sink
+    spec:
+      containers:
+      - name: load-sink
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-sink:0.0.16
+        imagePullPolicy: IfNotPresent 
+        env:
+        - name: PORT_NUMBER
+          value: "80"
+        - name: ADMIN_PASSWORD
+          value: "Crypt0N0m1c0n##"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/var/log"
+        ports:
+          - name: tcp-80
+            containerPort: 80
+      imagePullSecrets:
+        - name: ragnarok
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sink-service
+  namespace: ragnarok
+  labels:
+    app: sink-service
+spec:
+  type: ClusterIP
+  selector:
+    app: load-sink
+  ports:
+    - name: tcp-80
+      port: 80
+      targetPort: 80
+      protocol: TCP
+
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loadtest-ingress-service
+  namespace: ragnarok
+#  annotations:
+#    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /sink-admin
+        pathType: Prefix
+        backend:
+          service:
+            name: sink-service
+            port:
+              number: 80
+      - path: /sink-orders
+        pathType: Prefix
+        backend:
+          service:
+            name: sink-service
+            port:
+              number: 80

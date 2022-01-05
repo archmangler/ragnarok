@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  namespace: ragnarok
+spec:
+  selector:
+    matchLabels:
+      app: consumer
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+      - name: consumer
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.16
+        imagePullPolicy: Always
+        env:
+        - name: NUM_JOBS
+          value: "20"
+        - name: NUM_WORKERS
+          value: "20"
+        - name: KAFKA_BROKER1_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER2_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER3_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/var/log"
+        - name: OUTPUT_DIRECTORY_PATH
+          value: "/data/output-api"
+        - name: MESSAGE_TOPIC
+          value: "messages"
+        - name: ERROR_TOPIC
+          value: "api-failures"
+        - name: METRICS_TOPIC
+          value: "metrics"      
+        - name: TARGET_API_URL
+          value: "http://sink-service.ragnarok.svc.cluster.local/orders"
+        - name: PORT_NUMBER
+          value: "80"
+        volumeMounts:
+          - name: output
+            mountPath: /data/
+        ports:
+          - name: tcp-80
+            containerPort: 80
+      volumes:
+        - name: output
+          nfs: 
+          # URL for the NFS server
+            server: nfs-service.ragnarok.svc.cluster.local #Change this to the current address of the NFS service , obtained by looking at: kubectl get ep -n <application namespace>
+            path: /
+      imagePullSecrets:
+        - name: ragnarok
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: consumer-service
+  namespace: ragnarok
+spec:
+  type: NodePort
+  selector:
+    app: consumer
+  ports:
+    - name: tcp-80
+      port: 80
+      nodePort: 30081
+      protocol: TCP

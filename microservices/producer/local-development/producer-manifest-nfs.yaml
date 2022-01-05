@@ -1,0 +1,70 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  namespace: ragnarok
+spec:
+  selector:
+    matchLabels:
+      app: producer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+      - name: producer
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.7
+        imagePullPolicy: Always
+        env:
+        - name: NUM_JOBS
+          value: "10"
+        - name: NUM_WORKERS
+          value: "10"
+        - name: KAFKA_BROKER1_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER2_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER3_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: DATA_SOURCE_DIRECTORY
+          value: "/datastore"
+        - name: DATA_OUT_DIRECTORY
+          value: "/processed"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/applogs"
+        - name: MESSAGE_TOPIC
+          value: "messages"
+        - name: DEADLETTER_TOPIC
+          value: "deadLetter"
+        - name: METRICS_TOPIC
+          value: "metrics"      
+        volumeMounts:
+          - name: nfs-volume
+            mountPath: /data
+      volumes:
+        - name: nfs-volume
+          nfs: 
+          # URL for the NFS server
+            server: nfs-service.ragnarok.svc.cluster.local #Change this to the current address of the NFS service , obtained by looking at: kubectl get ep -n <application namespace>
+            path: /
+      imagePullSecrets:
+        - name: ragnarok
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: producer-service
+  namespace: ragnarok
+spec:
+  type: NodePort
+  selector:
+    app: producer
+  ports:
+    - name: tcp-80
+      port: 80
+      nodePort: 30082
+      protocol: TCP

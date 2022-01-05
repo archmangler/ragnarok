@@ -1,0 +1,127 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: datastore-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 512Mi 
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: processed-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 512Mi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: applogs-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 512Mi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: producer
+  namespace: ragnarok
+spec:
+  selector:
+    matchLabels:
+      app: producer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: producer
+    spec:
+      containers:
+      - name: producer
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.10
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NUM_JOBS
+          value: "100"
+        - name: NUM_WORKERS
+          value: "20"
+        - name: KAFKA_BROKER1_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER2_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER3_ADDRESS
+          value: "kafka.kafka.svc.cluster.local:9092"
+        - name: DATA_SOURCE_DIRECTORY
+          value: "/datastore"
+        - name: DATA_OUT_DIRECTORY
+          value: "/processed"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/applogs"
+        - name: MESSAGE_TOPIC
+          value: "messages"
+        - name: DEADLETTER_TOPIC
+          value: "deadLetter"
+        - name: METRICS_TOPIC
+          value: "metrics"      
+        - name: METRICS_PORT_NUMBER
+          value: "80"
+        volumeMounts:
+          - name: datastore
+            mountPath: /datastore
+          - name: processed
+            mountPath: /processed
+          - name: applogs
+            mountPath: /applogs
+        ports:
+          - name: tcp-80
+            containerPort: 80
+      volumes:
+        - name: datastore
+          persistentVolumeClaim:
+            claimName: datastore-claim
+        - name: processed
+          persistentVolumeClaim:
+            claimName: processed-claim
+        - name: applogs
+          persistentVolumeClaim:
+            claimName: applogs-claim
+      imagePullSecrets:
+        - name: ragnarok
+
+---
+
+#kind: Service
+#apiVersion: v1
+#metadata:
+#  name: producer-service
+#  namespace: ragnarok
+#spec:
+#  type: NodePort
+#  selector:
+#    app: producer
+#  ports:
+#    - name: tcp-80
+#      port: 80
+#      nodePort: 30082
+#      protocol: TCP
