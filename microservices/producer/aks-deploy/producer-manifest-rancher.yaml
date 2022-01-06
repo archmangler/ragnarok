@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: producer
-  replicas: 36
+  replicas: 8
   template:
     metadata:
       labels:
@@ -16,13 +16,13 @@ spec:
     spec:
       containers:
       - name: producer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.11
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.21
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
-          value: "10"
+          value: "200"
         - name: NUM_WORKERS
-          value: "10"
+          value: "200"
         - name: KAFKA_BROKER1_ADDRESS
           value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER2_ADDRESS

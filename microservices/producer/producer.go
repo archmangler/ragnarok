@@ -42,7 +42,8 @@ var taskCount int = 0
 var ctx = context.Background()
 var mutex = &sync.Mutex{}
 
-var taskMap = make(map[string][]string)
+var taskMap = make(map[string][]string) //map of files to process
+var purgeMap = make(map[string]string)  //map of files to 'purge' after processing
 
 //Instrumentation
 var (
@@ -54,6 +55,11 @@ var (
 	inputRequestsSubmitted = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "load_producer_submit_requests_total",
 		Help: "The total number of loaded requests submitted to the load queue",
+	})
+
+	resultsRead = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "load_producer_results_read_total",
+		Help: "The total number of concurrent worker results read",
 	})
 
 	inputRequestsFailed = promauto.NewCounter(prometheus.CounterOpts{
@@ -108,6 +114,13 @@ func recordConcurrentWorkers() {
 	}()
 }
 
+func recordConcurrentResults() {
+	go func() {
+		resultsRead.Inc()
+		time.Sleep(2 * time.Second)
+	}()
+}
+
 func logger(logFile string, logMessage string) {
 
 	logMessage = "[host=" + hostname + "]" + logMessage + " " + logFile
@@ -145,7 +158,28 @@ func check_errors(e error, jobId int) {
 
 }
 
-func MoveFile(sourcePath, destPath string) error {
+func purgeProcessed() {
+
+	purgeCntr := 0
+
+	for k, _ := range purgeMap {
+
+		//	_ = MoveFile(k, v) ... this is very slow
+
+		err := os.Remove(k)
+
+		if err != nil {
+			fmt.Printf("Failed removing original file: %s", err)
+		}
+
+		purgeCntr++
+	}
+
+	logger(logFile, "purged processed files: "+strconv.Itoa(purgeCntr))
+}
+
+func MoveFile(sourcePath string, destPath string) error {
+
 	inputFile, err := os.Open(sourcePath)
 	if err != nil {
 		return fmt.Errorf("Couldn't open source file: %s", err)
@@ -155,8 +189,6 @@ func MoveFile(sourcePath, destPath string) error {
 		inputFile.Close()
 		return fmt.Errorf("Couldn't open dest file: %s", err)
 	}
-
-	//defer outputFile.Close()
 
 	_, err = io.Copy(outputFile, inputFile)
 
@@ -175,6 +207,7 @@ func MoveFile(sourcePath, destPath string) error {
 	time.Sleep(2 * time.Second)
 
 	return nil
+
 }
 
 //pull an untouched file from the source directory and
@@ -199,7 +232,7 @@ func process_input_data(workerId int, jobNum int) {
 
 			dat, err := ioutil.ReadFile(input_file)
 
-			check_errors(err, jobNum)
+			//check_errors(err, jobNum)
 
 			payload := string(dat)
 
@@ -211,28 +244,33 @@ func process_input_data(workerId int, jobNum int) {
 
 			//We need to use MoveFile instead of RenameFile because
 			//this does not work across devices in Docker
-			err = MoveFile(input_file, file_destination)
+			//err = MoveFile(input_file, file_destination)
+
+			//keep a record of files that should be moved to /processed after the workers stop
+			mutex.Lock()
+			purgeMap[input_file] = file_destination
+			mutex.Unlock()
 
 			if err != nil {
 
 				errCount++
 
-				logMessage := "FAILED: " + strconv.Itoa(workerId) + " failed to move " + input_file + "to  " + file_destination + " error code: " + err.Error()
-				logger(logFile, logMessage)
+				//logMessage := "FAILED: " + strconv.Itoa(workerId) + " failed to move " + input_file + "to  " + file_destination + " error code: " + err.Error()
+				//logger(logFile, logMessage)
 
 			} else {
 
 				//record this as a metric
 				recordLoadedMetrics()
 
-				logMessage := "OK: " + strconv.Itoa(workerId) + " moved " + input_file + " to  " + file_destination
-				logger(logFile, logMessage)
+				//logMessage := "OK: " + strconv.Itoa(workerId) + " moved " + input_file + " to  " + file_destination
+				//logger(logFile, logMessage)
 
 			}
 
 		} else {
-			logMessage := "skipping file: " + input_file
-			logger(logFile, logMessage)
+			//logMessage := "skipping file: " + input_file
+			//logger(logFile, logMessage)
 		}
 
 	}
@@ -243,15 +281,23 @@ func process_input_data(workerId int, jobNum int) {
 	mutex.Unlock()
 
 	logger(logFile, "completed task"+strconv.Itoa(taskCount))
+
+	if taskCount == numWorkers-1 {
+
+		//move all processed files out of  "/datastore"
+		purgeProcessed()
+
+	}
+
 }
 
 //Publish the message to kafka DeadLetter or other topics
 //call: newOrderHandlers
 func produce(message string, ctx context.Context, topic string) (err error) {
 
-	msglen := len(message)
-	logMessage := "wrote: " + message + " size:  " + strconv.Itoa(msglen) + " to topic " + topic
-	logger(logFile, logMessage)
+	//msglen := len(message)
+	//logMessage := "wrote: " + message + " size:  " + strconv.Itoa(msglen) + " to topic " + topic
+	//logger(logFile, logMessage)
 
 	i := 0
 
@@ -276,8 +322,8 @@ func produce(message string, ctx context.Context, topic string) (err error) {
 	if err != nil {
 		//No need to panic (these are just test messages)
 		//panic("could not write message " + err.Error() + "to topic" + topic)
-		logMessage := "could not write message " + err.Error() + "to topic" + topic
-		logger(logFile, logMessage)
+		//logMessage := "could not write message " + err.Error() + "to topic" + topic
+		//logger(logFile, logMessage)
 
 		//record this as a metric
 		recordFailedMetrics()
@@ -307,11 +353,11 @@ func worker(id int, jobs <-chan int, results chan<- int) {
 
 	for j := range jobs {
 
-		notify_job_start(id, j)
+		//notify_job_start(id, j)
 
 		process_input_data(id, j)
 
-		notify_job_finish(id, j)
+		//notify_job_finish(id, j)
 
 		results <- numJobs //* numWorkers
 
@@ -323,9 +369,9 @@ func read_input_sources(inputDir string) (inputs []string) {
 
 	var inputQueue []string
 
-	files, err := ioutil.ReadDir(inputDir)
+	files, _ := ioutil.ReadDir(inputDir)
 
-	check_errors(err, 0)
+	//check_errors(err, 0)
 
 	for _, f := range files {
 		inputQueue = append(inputQueue, f.Name())
@@ -412,10 +458,12 @@ func main() {
 	}
 
 	for j := 1; j <= numJobs; j++ {
+
 		jobs <- j
 
 		//record as metric
 		recordConcurrentJobs()
+
 	}
 
 	close(jobs)
@@ -423,6 +471,9 @@ func main() {
 	for r := 0; r <= numJobs*numWorkers; r++ {
 
 		<-results
+
+		//record as metric
+		recordConcurrentResults()
 
 	}
 

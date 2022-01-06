@@ -4,7 +4,7 @@
 #Usage: 
 #   build push to remote reg: ./build.sh -n image_name -t tag -p yes
 #E.g:
-#./build.sh -n hammer -t 0.0.1 -p true -d true 
+#./build.sh -n load-tester -t 0.0.1 -p true -d true 
 #   build locally, no push to reg
 
 registry_name="605125156525.dkr.ecr.ap-southeast-1.amazonaws.com"
