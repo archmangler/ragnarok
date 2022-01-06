@@ -19,6 +19,27 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+//Get script configuration from the shell environment
+var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
+var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
+var port_specifier string = ":" + os.Getenv("PORT_NUMBER") // /var/log
+
+var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS") // "192.168.65.2:9092"
+var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:9092"
+var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
+var broker4Address = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
+var broker5Address = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
+
+var topic0 string = os.Getenv("MESSAGE_TOPIC") // "messages"
+var topic1 string = os.Getenv("ERROR_TOPIC")   // "api-failures"
+var topic2 string = os.Getenv("METRICS_TOPIC") // "metrics"
+
+var target_api_url string = os.Getenv("TARGET_API_URL") // e.g To use the dummy target api, provide: http://<some_ip_address>:<someport>/orders
+
+var hostname string = os.Getenv("HOSTNAME")                            // "the pod hostname (in k8s) which ran this instance of go"
+var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/consumer.log" // "/data/applogs/consumer.log"
+var consumer_group = os.Getenv("CONSUMER_GROUP")                       // we set the consumer group name to the podname / hostname
+
 //produce a context for Kafka
 var ctx = context.Background()
 
@@ -109,27 +130,6 @@ func recordConcurrentWorkers() {
 		time.Sleep(2 * time.Second)
 	}()
 }
-
-//Get script configuration from the shell environment
-var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
-var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
-var port_specifier string = ":" + os.Getenv("PORT_NUMBER") // /var/log
-
-var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS") // "192.168.65.2:9092"
-var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:9092"
-var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
-var broker4Address = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
-var broker5Address = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
-
-var topic0 string = os.Getenv("MESSAGE_TOPIC") // "messages"
-var topic1 string = os.Getenv("ERROR_TOPIC")   // "api-failures"
-var topic2 string = os.Getenv("METRICS_TOPIC") // "metrics"
-
-var target_api_url string = os.Getenv("TARGET_API_URL") // e.g To use the dummy target api, provide: http://<some_ip_address>:<someport>/orders
-
-var hostname string = os.Getenv("HOSTNAME")                            // "the pod hostname (in k8s) which ran this instance of go"
-var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/consumer.log" // "/data/applogs/consumer.log"
-var consumer_group = os.Getenv("CONSUMER_GROUP")                                           // we set the consumer group name to the podname / hostname
 
 //destination directory is used for now to simulate the remote API
 //messages consumed from kafka are dumped into the output-api shared folder.
@@ -276,7 +276,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 		if err != nil {
 
 			//produce to errored messages topic
-			produce(message, ctx, topic1)
+			//produce(message, ctx, topic1)
 
 			//publish metric to the metrics topic
 			errorCount += 1
@@ -284,7 +284,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 			logMessage := "Error Count: " + strconv.Itoa(errorCount)
 			logger(logFile, logMessage)
 
-			produce(message, ctx, topic2)
+			//produce(message, ctx, topic2)
 
 		}
 
@@ -311,6 +311,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 		} else {
 
 			recordSuccessMetrics()
+
 		}
 
 		//defer resp.Body.Close()
@@ -318,14 +319,17 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 		resp.Body.Close()
 
 		//log the response
-		logMessage := "Response Status from target API: " + resp.Status
+		logMessage := "Posted message data: " + string(jsonStr) + " to topic: "
+		logger(logFile, logMessage)
+
+		logMessage = "Response Status from target API: " + resp.Status
 		logger(logFile, logMessage)
 
 		if err != nil {
 
 			//publish metric to the metrics topic
 			errorCount += 1
-			produce(message, ctx, topic2)
+			//produce(message, ctx, topic2)
 
 			logMessage := "could not write message to API" + err.Error()
 			logger(logFile, logMessage)
