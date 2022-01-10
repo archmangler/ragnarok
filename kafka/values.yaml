@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------------
 
 ## The StatefulSet installs 3 pods by default
-replicas: 5
+replicas: 3 
 
 ## The kafka image repository
 image: "confluentinc/cp-kafka"
@@ -179,8 +179,9 @@ podDisruptionBudget: {}
 ##
 configurationOverrides:
   "confluent.support.metrics.enable": false  # Disables confluent metric submission
-  # "auto.leader.rebalance.enable": true
-  # "auto.create.topics.enable": true
+  "auto.leader.rebalance.enable": true
+  "auto.create.topics.enable": true
+  "enable.auto.commit": true
   # "controlled.shutdown.enable": true
   # "controlled.shutdown.max.retries": 100
 
@@ -439,16 +440,8 @@ configJob:
 topics:
   - name: messages
     config: "cleanup.policy=compact,delete.retention.ms=604799999"
-    partitions: 8
-    replicationFactor: 5
-    reassignPartitions: true
-  - name: deadLetter
-    partitions: 8
-    replicationFactor: 5
-    reassignPartitions: true
-  - name: metrics
-    partitions: 8
-    replicationFactor: 5
+    partitions: 7
+    replicationFactor: 1 
     reassignPartitions: true
   # - name: myNewTopicWithConfig
   #   partitions: 8
