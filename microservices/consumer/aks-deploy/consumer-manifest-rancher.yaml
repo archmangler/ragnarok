@@ -35,7 +35,7 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 72
+  replicas: 36
   template:
     metadata:
       labels:
@@ -45,7 +45,7 @@ spec:
         agentpool: dsv3fam
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.32
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.33
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
@@ -59,9 +59,13 @@ spec:
         - name: KAFKA_BROKER3_ADDRESS
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER4_ADDRESS
-          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+          value: "kafka-3.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER5_ADDRESS
-          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+          value: "kafka-4.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER6_ADDRESS
+          value: "kafka-5.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER7_ADDRESS
+          value: "kafka-6.kafka-headless.kafka.svc.cluster.local:9092"
         - name: CONSUMER_GROUP
           value: "cg001"
         - name: CONSUMER_COMMIT_INTERVAL

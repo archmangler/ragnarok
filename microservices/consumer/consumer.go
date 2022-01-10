@@ -29,6 +29,8 @@ var broker2Address string = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:
 var broker3Address string = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
 var broker4Address string = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
 var broker5Address string = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
+var broker6Address string = os.Getenv("KAFKA_BROKER6_ADDRESS") // "192.168.65.2:9092"
+var broker7Address string = os.Getenv("KAFKA_BROKER7_ADDRESS") // "192.168.65.2:9092"
 
 var offSetCommitInterval, _ = strconv.Atoi(os.Getenv("CONSUMER_COMMIT_INTERVAL"))
 
@@ -215,7 +217,7 @@ func produce(message string, ctx context.Context, topic string) {
 
 	// intialize the writer with the broker addresses, and the topic
 	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address},
+		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker6Address, broker7Address},
 		Topic:   topic,
 	})
 
@@ -260,7 +262,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 	}
 
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address},
+		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker6Address, broker7Address},
 		Topic:   topic,
 		GroupID: consumer_group,
 		Dialer:  dialer,

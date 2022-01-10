@@ -11,6 +11,6 @@ kubectl create -f kafka-client.yaml
 
 for topic in messages deadLetter metrics
 do
-  kubectl -n kafka exec testclient -- ./bin/kafka-topics.sh --zookeeper kafka-zookeeper:2181 --topic $topic --create --partitions 3 --replication-factor 1
+  kubectl -n kafka exec testclient -- ./bin/kafka-topics.sh --zookeeper kafka-zookeeper:2181 --topic $topic --create --partitions 7 --replication-factor 1
 done
 

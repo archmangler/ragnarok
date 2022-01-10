@@ -24,7 +24,7 @@ resources: {}
   # requests:
   #   cpu: 100m
   #   memory: 1024Mi
-kafkaHeapOptions: "-Xmx1G -Xms1G"
+kafkaHeapOptions: "-Xmx2G -Xms2G"
 
 ## Optional Container Security context
 securityContext: {}
@@ -107,8 +107,8 @@ nodeSelector: {}
 ##
 readinessProbe:
   initialDelaySeconds: 30
-  periodSeconds: 10
-  timeoutSeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 10
   successThreshold: 1
   failureThreshold: 3
 
@@ -179,9 +179,9 @@ podDisruptionBudget: {}
 ##
 configurationOverrides:
   "confluent.support.metrics.enable": false  # Disables confluent metric submission
-  "auto.leader.rebalance.enable": true
-  "auto.create.topics.enable": true
-  "enable.auto.commit": true
+#  "auto.leader.rebalance.enable": true
+#  "auto.create.topics.enable": true
+#  "enable.auto.commit": true
   # "controlled.shutdown.enable": true
   # "controlled.shutdown.max.retries": 100
 
@@ -221,7 +221,7 @@ persistence:
   ## The size of the PersistentVolume to allocate to each Kafka Pod in the StatefulSet. For
   ## production servers this number should likely be much larger.
   ##
-  size: "1Gi"
+  size: "10Gi"
 
   ## The location within the Kafka container where the PV will mount its storage and Kafka will
   ## store its logs.
@@ -235,7 +235,8 @@ persistence:
   ##   set, choosing the default provisioner.  (gp2 on AWS, standard on
   ##   GKE, AWS & OpenStack)
   ##
-  # storageClass:
+  storageClass: "default"
+
 
 jmx:
   ## Rules to apply to the Prometheus JMX Exporter.  Note while lots of stats have been cleaned and exposed,

@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: producer
-  replicas: 48
+  replicas: 16
   template:
     metadata:
       labels:
@@ -32,9 +32,11 @@ spec:
         - name: KAFKA_BROKER3_ADDRESS
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER4_ADDRESS
-          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+          value: "kafka-3.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER5_ADDRESS
-          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+          value: "kafka-4.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER6_ADDRESS
+          value: "kafka-5.kafka-headless.kafka.svc.cluster.local:9092"
         - name: CONSUMER_GROUP
           value: "cg002"
         - name: DATA_SOURCE_DIRECTORY
