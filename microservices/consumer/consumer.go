@@ -24,11 +24,13 @@ var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
 var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
 var port_specifier string = ":" + os.Getenv("PORT_NUMBER") // /var/log
 
-var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS") // "192.168.65.2:9092"
-var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:9092"
-var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
-var broker4Address = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
-var broker5Address = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
+var broker1Address string = os.Getenv("KAFKA_BROKER1_ADDRESS") // "192.168.65.2:9092"
+var broker2Address string = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:9092"
+var broker3Address string = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
+var broker4Address string = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
+var broker5Address string = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
+
+var offSetCommitInterval, _ = strconv.Atoi(os.Getenv("CONSUMER_COMMIT_INTERVAL"))
 
 var topic0 string = os.Getenv("MESSAGE_TOPIC") // "messages"
 var topic1 string = os.Getenv("ERROR_TOPIC")   // "api-failures"
@@ -38,7 +40,8 @@ var target_api_url string = os.Getenv("TARGET_API_URL") // e.g To use the dummy 
 
 var hostname string = os.Getenv("HOSTNAME")                            // "the pod hostname (in k8s) which ran this instance of go"
 var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/consumer.log" // "/data/applogs/consumer.log"
-var consumer_group = os.Getenv("CONSUMER_GROUP")                       // we set the consumer group name to the podname / hostname
+//var consumer_group = os.Getenv("CONSUMER_GROUP")                       // we set the consumer group name to the podname / hostname
+var consumer_group = os.Getenv("HOSTNAME") // we set the consumer group name to the podname / hostname
 
 //produce a context for Kafka
 var ctx = context.Background()
@@ -163,7 +166,7 @@ func data_check(message string) (err error) {
 		logger(logFile, logMessage)
 
 		//TODO: Format as JSON
-		produce(message, ctx, topic2)
+		//produce(message, ctx, topic2)
 	}
 
 	return nil
@@ -252,10 +255,15 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 	logMessage := "worker " + strconv.Itoa(id) + "consuming from topic " + topic
 	logger(logFile, logMessage)
 
+	dialer := &kafka.Dialer{
+		Timeout: 600 * time.Second,
+	}
+
 	r := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address},
 		Topic:   topic,
 		GroupID: consumer_group,
+		Dialer:  dialer,
 	})
 
 	for {
@@ -267,6 +275,10 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 			panic("could not read message " + err.Error())
 		} else {
 			recordConsumedMetrics()
+
+			logMessage := "worker " + strconv.Itoa(id) + "OK - consumed a message from topic " + topic
+			logger(logFile, logMessage)
+
 		}
 
 		message = string(msg.Value)
@@ -314,9 +326,9 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 
 		}
 
-		//defer resp.Body.Close()
+		defer resp.Body.Close()
 
-		resp.Body.Close()
+		//resp.Body.Close()
 
 		//log the response
 		logMessage := "Posted message data: " + string(jsonStr) + " to topic: "
@@ -329,10 +341,13 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 
 			//publish metric to the metrics topic
 			errorCount += 1
+
 			//produce(message, ctx, topic2)
 
 			logMessage := "could not write message to API" + err.Error()
 			logger(logFile, logMessage)
+
+		} else {
 
 			//If all went well ...
 			logMessage = "wrote message to API: " + message
@@ -343,20 +358,31 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 	}
 }
 
+func dumb_worker(id int) {
+
+	for {
+
+		payload := consume_payload_data(ctx, topic0, id)
+		logMessage := "-> consumed payload message from" + topic0 + " : " + payload
+		logger(logFile, logMessage)
+	}
+
+}
+
 func worker(id int, jobs <-chan int, results chan<- int) {
 
 	for j := range jobs {
 
 		payload := consume_payload_data(ctx, topic0, id)
 
-		notify_job_start(id, j)
+		//notify_job_start(id, j)
 
 		logMessage := "-> consumed payload message from" + topic0 + " : " + payload
 		logger(logFile, logMessage)
 
 		time.Sleep(time.Second)
 
-		notify_job_finish(id, j)
+		//notify_job_finish(id, j)
 
 		results <- j
 
@@ -376,7 +402,12 @@ func main() {
 		}
 	}()
 
-	jobs := make(chan int, numJobs)
+	//using a simple loop
+	dumb_worker(1)
+
+	//Using Go Worker Pools ..
+
+	/*jobs := make(chan int, numJobs)
 	results := make(chan int, numJobs)
 
 	for w := 1; w <= numWorkers; w++ {
@@ -400,5 +431,6 @@ func main() {
 
 		<-results
 	}
+	*/
 
 }

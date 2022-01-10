@@ -8,12 +8,14 @@ spec:
   selector:
     matchLabels:
       app: producer
-  replicas: 8
+  replicas: 48
   template:
     metadata:
       labels:
         app: producer
     spec:
+      nodeSelector:
+        agentpool: dsv3fam
       containers:
       - name: producer
         image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.21
@@ -30,9 +32,9 @@ spec:
         - name: KAFKA_BROKER3_ADDRESS
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER4_ADDRESS
-          value: "kafka-3.kafka-headless.kafka.svc.cluster.local:9092"
+          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER5_ADDRESS
-          value: "kafka-4.kafka-headless.kafka.svc.cluster.local:9092"
+          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: CONSUMER_GROUP
           value: "cg002"
         - name: DATA_SOURCE_DIRECTORY
