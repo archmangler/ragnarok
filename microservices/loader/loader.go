@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -41,6 +42,7 @@ var start_sequence = 1                                             // start of m
 var end_sequence = 10000                                           // end of message range count
 var port_specifier string = ":" + os.Getenv("METRICS_PORT_NUMBER") // port for metrics service to listen on
 var taskCount int = 0
+var redisConnectionAdress string = os.Getenv("REDIS_MASTER_ADDRESS") //address:port combination e.g  "my-release-redis-master.default.svc.cluster.local:6379"
 
 //Kafka related parameters
 var kcat_command_path string = os.Getenv("KCAT_PATH")                     //"/usr/bin/kcat"
@@ -241,48 +243,99 @@ func generate_input_sources(inputDir string, startSequence int, endSequence int)
 	return inputQueue
 }
 
+func put_to_redis(input_file string, fIndex int, fileCount int) (fc int) {
+
+	// Establish a connection to the Redis server listening on port
+	// 6379 of the local machine. 6379 is the default port, so unless
+	// you've already changed the Redis configuration file this should
+	// work.
+
+	conn, err := redis.Dial("tcp", redisConnectionAdress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//Use defer to ensure the connection is always
+	//properly closed before exiting the main() function.
+	defer conn.Close()
+
+	// Send our command across the connection. The first parameter to
+	// Do() is always the name of the Redis command (in this example
+	// HMSET), optionally followed by any necessary arguments (in this
+	// example the key, followed by the various hash fields and values).
+
+	now := time.Now()
+	msgTimestamp := now.UnixNano()
+
+	//build the message body inputs for json
+	_, err = conn.Do("HMSET", fIndex, "Name", "newOrder", "ID", strconv.Itoa(fIndex), "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
+
+	if err != nil {
+		fmt.Println("failed to put file to redis: ", input_file)
+		//consider returning the error here ...
+	} else {
+
+		fileCount++
+
+	}
+
+	return fileCount
+
+}
+
+func create_load_file(input_file string, fIndex int, fileCount int) (fc int) {
+
+	logger(logFile, "trying to create input file: "+input_file)
+
+	//format the request message payload (milliseconds for now)
+	now := time.Now()
+	msgTimestamp := now.UnixNano()
+
+	msgPayload := `[{ "Name": "newOrder","ID":"` + strconv.Itoa(fIndex) + `","Time":"` + strconv.FormatInt(msgTimestamp, 10) + `","Data":"` + hostname + `","Eventname":"transactionRequest"}]`
+
+	logger(logFile, "prepared message payload: "+msgPayload)
+
+	f, err := os.Create(input_file)
+
+	if err != nil {
+		logger(logFile, "error generating request message file: "+err.Error())
+
+		//record as a failure metric
+		recordFailureMetrics()
+	} else {
+		//record as a success metric
+		recordSuccessMetrics()
+		fileCount++
+	}
+	_, err = f.WriteString(msgPayload)
+	f.Close()
+
+	fmt.Println("[debug] data -> ", msgPayload, " Error: ", err)
+	return fileCount
+}
+
 func process_input_data(tmpFileList []string) int {
 
 	logger(logFile, "processing files: "+strings.Join(tmpFileList, ","))
-	fileCount := 0
 
 	//where the actual task gets done
+	fileCount := 0
 	for fIndex := range tmpFileList {
 
 		input_file := tmpFileList[fIndex] + ".json"
 
-		logger(logFile, "trying to create input file: "+input_file)
+		//To Store in file:
+		//fileCount = create_load_file(input_file, fIndex, fileCount)
 
-		//format the request message payload (milliseconds for now)
-		now := time.Now()
-		msgTimestamp := now.UnixNano()
+		//Alternatively: to store in Redis
+		fileCount = put_to_redis(input_file, fIndex, fileCount)
 
-		msgPayload := `[{ "Name": "newOrder","ID":"` + strconv.Itoa(fIndex) + `","Time":"` + strconv.FormatInt(msgTimestamp, 10) + `","Data":"` + hostname + `","Eventname":"transactionRequest"}]`
-
-		logger(logFile, "prepared message payload: "+msgPayload)
-
-		f, err := os.Create(input_file)
-
-		if err != nil {
-			logger(logFile, "error generating request message file: "+err.Error())
-
-			//record as a failure metric
-			recordFailureMetrics()
-		} else {
-			//record as a success metric
-			recordSuccessMetrics()
-			fileCount++
-		}
-		_, err = f.WriteString(msgPayload)
-		f.Close()
-
-		fmt.Println("[debug] data -> ", msgPayload, " Error: ", err)
 	}
 
 	logger(logFile, "done creating input files.")
 
 	return fileCount
-
 }
 
 func MoveFile(sourcePath, destPath string) error {

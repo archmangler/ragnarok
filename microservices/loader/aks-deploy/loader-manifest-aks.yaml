@@ -27,10 +27,12 @@ spec:
       labels:
         app: loader
     spec:
+      nodeSelector:
+        agentpool: dsv4fam
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.29
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.35
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
@@ -45,10 +47,14 @@ spec:
           value: "kafka-1.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER3_ADDRESS
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: REDIS_MASTER_ADDRESS
+          value: "my-release-redis-master.default.svc.cluster.local:6379"
         - name: CONSUMER_GROUP
           value: "cg001"
         - name: KCAT_PATH
           value: "/usr/bin/kcat"
+        - name: DATA_STAGING_DIRECTORY
+          value: "/staging"
         - name: DATA_SOURCE_DIRECTORY
           value: "/datastore"
         - name: DATA_OUT_DIRECTORY
@@ -102,7 +108,6 @@ spec:
         - name: ragnarok
 
 ---
-
 apiVersion: v1
 kind: Service
 metadata:

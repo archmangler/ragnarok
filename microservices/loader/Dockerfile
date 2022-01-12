@@ -14,7 +14,7 @@ RUN mkdir -p /datastore
 RUN mkdir -p /processed
 RUN mkdir -p /backups
 RUN mkdir -p /applogs
-RUN mkdir -p /assets
+RUN mkdir -p /staging
 
 #install kubectl for kube-ops
 RUN apk add curl
