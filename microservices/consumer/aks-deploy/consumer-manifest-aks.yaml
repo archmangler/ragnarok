@@ -35,17 +35,17 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 36
+  replicas: 160 
   template:
     metadata:
       labels:
         app: consumer
     spec:
       nodeSelector:
-        agentpool: dsv3fam
+        agentpool: dsv4fam
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.33
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.34
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
@@ -66,6 +66,20 @@ spec:
           value: "kafka-5.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER7_ADDRESS
           value: "kafka-6.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER8_ADDRESS
+          value: "kafka-7.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER9_ADDRESS
+          value: "kafka-8.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER10_ADDRESS
+          value: "kafka-9.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER11_ADDRESS
+          value: "kafka-10.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER12_ADDRESS
+          value: "kafka-11.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER13_ADDRESS
+          value: "kafka-12.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER14_ADDRESS
+          value: "kafka-13.kafka-headless.kafka.svc.cluster.local:9092"
         - name: CONSUMER_GROUP
           value: "cg001"
         - name: CONSUMER_COMMIT_INTERVAL

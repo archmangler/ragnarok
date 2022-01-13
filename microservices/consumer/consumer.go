@@ -32,6 +32,14 @@ var broker5Address string = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:
 var broker6Address string = os.Getenv("KAFKA_BROKER6_ADDRESS") // "192.168.65.2:9092"
 var broker7Address string = os.Getenv("KAFKA_BROKER7_ADDRESS") // "192.168.65.2:9092"
 
+var broker8Address = os.Getenv("KAFKA_BROKER8_ADDRESS")   // "192.168.65.2:9092"
+var broker9Address = os.Getenv("KAFKA_BROKER9_ADDRESS")   // "192.168.65.2:9092"
+var broker10Address = os.Getenv("KAFKA_BROKER10_ADDRESS") // "192.168.65.2:9092"
+var broker11Address = os.Getenv("KAFKA_BROKER11_ADDRESS") // "192.168.65.2:9092"
+var broker12Address = os.Getenv("KAFKA_BROKER12_ADDRESS") // "192.168.65.2:9092"
+var broker13Address = os.Getenv("KAFKA_BROKER13_ADDRESS") // "192.168.65.2:9092"
+var broker14Address = os.Getenv("KAFKA_BROKER14_ADDRESS") // "192.168.65.2:9092"
+
 var offSetCommitInterval, _ = strconv.Atoi(os.Getenv("CONSUMER_COMMIT_INTERVAL"))
 
 var topic0 string = os.Getenv("MESSAGE_TOPIC") // "messages"
@@ -189,7 +197,11 @@ func notify_job_finish(workerId int, jobNum int) {
 
 func logger(logFile string, logMessage string) {
 
-	logMessage = "[host=" + hostname + "]" + logMessage
+	now := time.Now()
+	msgTimestamp := now.UnixNano()
+
+	logMessage = strconv.FormatInt(msgTimestamp, 10) + " [host=" + hostname + "]" + logMessage + " " + logFile
+
 	fmt.Println(logMessage)
 
 	/*
@@ -262,7 +274,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 	}
 
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker6Address, broker7Address},
+		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address},
 		Topic:   topic,
 		GroupID: consumer_group,
 		Dialer:  dialer,

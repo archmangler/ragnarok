@@ -32,7 +32,7 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.35
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.43
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
@@ -49,6 +49,10 @@ spec:
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: REDIS_MASTER_ADDRESS
           value: "my-release-redis-master.default.svc.cluster.local:6379"
+        - name: REDIS_REPLICA_ADDRESS
+          value: "my-release-redis-replicas.default.svc.cluster.local:6379"
+        - name: REDIS_PASS
+          value: "Q7PjsKOBCa"
         - name: CONSUMER_GROUP
           value: "cg001"
         - name: KCAT_PATH

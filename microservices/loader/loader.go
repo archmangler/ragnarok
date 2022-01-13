@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -42,7 +43,11 @@ var start_sequence = 1                                             // start of m
 var end_sequence = 10000                                           // end of message range count
 var port_specifier string = ":" + os.Getenv("METRICS_PORT_NUMBER") // port for metrics service to listen on
 var taskCount int = 0
-var redisConnectionAdress string = os.Getenv("REDIS_MASTER_ADDRESS") //address:port combination e.g  "my-release-redis-master.default.svc.cluster.local:6379"
+
+//Redis data storage details
+var redisWriteConnectionAddress string = os.Getenv("REDIS_MASTER_ADDRESS") //address:port combination e.g  "my-release-redis-master.default.svc.cluster.local:6379"
+var redisReadConnectionAddress string = os.Getenv("REDIS_REPLICA_ADDRESS") //address:port combination e.g  "my-release-redis-replicas.default.svc.cluster.local:6379"
+var redisAuthPass string = os.Getenv("REDIS_PASS")
 
 //Kafka related parameters
 var kcat_command_path string = os.Getenv("KCAT_PATH")                     //"/usr/bin/kcat"
@@ -54,6 +59,14 @@ var mutex = &sync.Mutex{}
 
 //map of task allocation to concurrent workers
 var taskMap = make(map[string][]string)
+
+type Payload struct {
+	Name      string
+	ID        string
+	Time      string
+	Data      string
+	Eventname string
+}
 
 //Management Portal Component
 type adminPortal struct {
@@ -230,7 +243,8 @@ func generate_input_sources(inputDir string, startSequence int, endSequence int)
 
 	for f := startSequence; f <= endSequence; f++ {
 
-		inputQueue = append(inputQueue, inputDir+strconv.Itoa(f))
+		//IF USING filestorage:		inputQueue = append(inputQueue, inputDir+strconv.Itoa(f))
+		inputQueue = append(inputQueue, strconv.Itoa(f))
 
 	}
 
@@ -243,22 +257,7 @@ func generate_input_sources(inputDir string, startSequence int, endSequence int)
 	return inputQueue
 }
 
-func put_to_redis(input_file string, fIndex int, fileCount int) (fc int) {
-
-	// Establish a connection to the Redis server listening on port
-	// 6379 of the local machine. 6379 is the default port, so unless
-	// you've already changed the Redis configuration file this should
-	// work.
-
-	conn, err := redis.Dial("tcp", redisConnectionAdress)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//Use defer to ensure the connection is always
-	//properly closed before exiting the main() function.
-	defer conn.Close()
+func put_to_redis(input_file string, fIndex int, fileCount int, conn redis.Conn) (fc int) {
 
 	// Send our command across the connection. The first parameter to
 	// Do() is always the name of the Redis command (in this example
@@ -269,15 +268,16 @@ func put_to_redis(input_file string, fIndex int, fileCount int) (fc int) {
 	msgTimestamp := now.UnixNano()
 
 	//build the message body inputs for json
-	_, err = conn.Do("HMSET", fIndex, "Name", "newOrder", "ID", strconv.Itoa(fIndex), "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
+	_, err := conn.Do("HMSET", fIndex, "Name", "newOrder", "ID", strconv.Itoa(fIndex), "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
 
 	if err != nil {
-		fmt.Println("failed to put file to redis: ", input_file)
-		//consider returning the error here ...
+		fmt.Println("failed to put file to redis: ", input_file, err.Error())
+		//record as a failure metric
+		recordFailureMetrics()
 	} else {
-
+		//record as a success metric
+		recordSuccessMetrics()
 		fileCount++
-
 	}
 
 	return fileCount
@@ -320,16 +320,39 @@ func process_input_data(tmpFileList []string) int {
 	logger(logFile, "processing files: "+strings.Join(tmpFileList, ","))
 
 	//where the actual task gets done
+	//To Store in file:
+	//fileCount = create_load_file(input_file, fIndex, fileCount)
+
+	//Alternatively: to store in Redis
+	// Establish a connection to the Redis server listening on port
+	// 6379 of the local machine. 6379 is the default port, so unless
+	// you've already changed the Redis configuration file this should
+	// work.
+
+	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Now authenticate
+	response, err := conn.Do("AUTH", redisAuthPass)
+
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("redis auth response: ", response)
+	}
+
+	//Use defer to ensure the connection is always
+	//properly closed before exiting the main() function.
+	defer conn.Close()
+
 	fileCount := 0
 	for fIndex := range tmpFileList {
 
 		input_file := tmpFileList[fIndex] + ".json"
-
-		//To Store in file:
-		//fileCount = create_load_file(input_file, fIndex, fileCount)
-
-		//Alternatively: to store in Redis
-		fileCount = put_to_redis(input_file, fIndex, fileCount)
+		fileCount = put_to_redis(input_file, fIndex, fileCount, conn)
 
 	}
 
@@ -454,24 +477,19 @@ func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence in
 	w.Write([]byte("<html><h1>Generating and Loading Synthetic Data</h1></html>"))
 
 	//1. Check input directory and clear it [x]
-	count, err := clear_directory(source_directory)
-
-	w.Write([]byte("<html> Cleared stale input data: " + strconv.Itoa(count) + " files." + "</html>"))
-
-	if err != nil {
-		return "clear input dir failed", err
-	}
-
-	logger(logFile, "cleared input directory files: "+strconv.Itoa(count))
-
+	//count, err := clear_directory(source_directory)
+	//w.Write([]byte("<html> Cleared stale input data: " + strconv.Itoa(count) + " files." + "</html>"))
+	//if err != nil {
+	//	return "clear input dir failed", err
+	//}
+	//logger(logFile, "cleared input directory files: "+strconv.Itoa(count))
 	//2. Check output directory and clear it [x]
-	count, err = clear_directory(processed_directory)
-	w.Write([]byte("<html> Cleared stale processed data: " + strconv.Itoa(count) + " files." + "</html>"))
-
-	if err != nil {
-		return "clear processed dir failed", err
-	}
-	logger(logFile, "cleared processed directory files: "+strconv.Itoa(count))
+	//count, err = clear_directory(processed_directory)
+	//w.Write([]byte("<html> Cleared stale processed data: " + strconv.Itoa(count) + " files." + "</html>"))
+	//if err != nil {
+	//	return "clear processed dir failed", err
+	//}
+	//logger(logFile, "cleared processed directory files: "+strconv.Itoa(count))
 
 	//3. Run file sequence generation algorithm [p]
 
@@ -764,6 +782,77 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 	return status
 }
 
+func write_message_from_kafka(msgCount int, errCount int, temp []string, line int) (int, int) {
+
+	file_name := source_directory + strconv.Itoa(msgCount) + ".json"
+
+	//write each line to an individual file
+	f, err := os.Create(file_name)
+
+	if err != nil {
+		logger(logFile, "error generating request message file: "+err.Error())
+		//record as a failure metric
+		errCount++
+
+	} else {
+		logger(logFile, "wrote historical topic message to file: "+file_name)
+		//record as a success metric
+		msgCount++
+	}
+
+	logger(logFile, "will write this topic message to file: "+temp[line])
+	_, err = f.WriteString(temp[line])
+	f.Close()
+	return msgCount, errCount
+}
+
+func write_message_to_redis(msgCount int, errCount int, temp []string, line int, conn redis.Conn) (int, int) {
+
+	s := temp[line]
+
+	var t Payload
+
+	s = strings.Replace(s, "[", "", -1)
+	s = strings.Replace(s, "]", "", -1)
+
+	logger(logFile, "will write to redis: "+s)
+
+	b := []byte(s)
+
+	err := json.Unmarshal(b, &t)
+
+	if err == nil {
+		fmt.Printf("%+v\n", t)
+	} else {
+		fmt.Println(err)
+		fmt.Printf("%+v\n", t)
+	}
+
+	Name := t.Name
+	ID := t.ID
+	Time := t.Time
+	Data := t.Data
+	Eventname := t.Eventname
+
+	//REDIFY
+	_, err = conn.Do("HMSET", line, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
+
+	if err != nil {
+		logger(logFile, "error writing message to redis: "+err.Error())
+		//record as a failure metric
+		recordFailureMetrics()
+		errCount++
+
+	} else {
+		logger(logFile, "wrote message to redis. count: "+strconv.Itoa(msgCount))
+		//record as a success metric
+		recordSuccessMetrics()
+		msgCount++
+	}
+
+	return msgCount, errCount
+}
+
 func dump_kafka_messages_to_input(kafkaTopic string, msgStartSeq string, msgStopSeq string) (msgCount int, errCount int) {
 
 	logger(logFile, "streaming messages from kafka topic "+kafkaTopic+" in range "+msgStartSeq+" to "+msgStopSeq)
@@ -789,28 +878,43 @@ func dump_kafka_messages_to_input(kafkaTopic string, msgStartSeq string, msgStop
 
 	cnt := 0
 
+	//And we're operating  under the presumption we'll be using redis storage here
+	//but perhaps we should make this a selectable option ?
+
+	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Now authenticate
+	response, err := conn.Do("AUTH", redisAuthPass)
+
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("redis auth response: ", response)
+	}
+
+	//Use defer to ensure the connection is always
+	//properly closed before exiting the main() function.
+	defer conn.Close()
+
+	//Now pump kafka data into redis loopwise ...
 	for line := range temp {
 		cnt++
 		if len(temp[line]) > 0 {
-			file_name := source_directory + strconv.Itoa(msgCount) + ".json"
-			//write each line to an individual file
-			f, err := os.Create(file_name)
-			if err != nil {
-				logger(logFile, "error generating request message file: "+err.Error())
-				//record as a failure metric
-				errCount++
-			} else {
-				logger(logFile, "wrote historical topic message to file: "+file_name)
-				//record as a success metric
-				msgCount++
-			}
-			logger(logFile, "will write this topic message to file: "+temp[line])
-			_, err = f.WriteString(temp[line])
-			f.Close()
+
+			//writing to file ...
+			//msgCount, errCount = write_message_from_kafka(msgCount, errCount, temp, line)
+
+			//Alternatively, writing to redis REDIFY
+			msgCount, errCount = write_message_to_redis(msgCount, errCount, temp, line, conn)
+
+			logger(logFile, "number of topic messages processed: "+strconv.Itoa(msgCount))
+
 		}
 	}
-
-	logger(logFile, "number of topic messages processed: "+strconv.Itoa(cnt))
 
 	return msgCount, errCount
 }
