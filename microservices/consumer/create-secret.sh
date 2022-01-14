@@ -2,7 +2,7 @@
 #Little helper script to create the ECR docker login secret
 #
 #Set the secret as follows:
-#export DOCKER_PASSWORD=`aws ecr get-login-password --region ap-southeast-1`
+export DOCKER_PASSWORD=`aws ecr get-login-password --region ap-southeast-1`
 
 kubectl create namespace ragnarok
 

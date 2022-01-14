@@ -35,7 +35,7 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 160 
+  replicas: 160
   template:
     metadata:
       labels:
