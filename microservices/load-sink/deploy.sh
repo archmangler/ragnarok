@@ -2,5 +2,4 @@
 #simple deploy to EKS
 #
 
-kubectl create  namespace ragnarok
 kubectl apply -f load-sink-deployment.yaml
