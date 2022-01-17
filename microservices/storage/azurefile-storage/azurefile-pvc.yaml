@@ -1,0 +1,65 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: datastore-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile-premium
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: datastore2-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 256Gi
+  storageClassName: azurefile-csi-premium
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: processed-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile-premium
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: applogs-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile-premium
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: backups-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile-premium

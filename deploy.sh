@@ -90,6 +90,12 @@ function deploy_loader_service_aks () {
   cd $mycwd
 }
 
+function deploy_local_storage_aks () {
+  mycwd=`pwd`
+  cd microservices/storage/azurefile-storage/ && ./deploy.sh
+  cd $mycwd
+}
+
 
 #deploy_aks_cluster
 create_namespaces
@@ -106,9 +112,12 @@ deploy_ingress_service
 
 deploy_sink_service
 
+deploy_local_storage_aks
+
 deploy_producer_service_aks
 
 deploy_consumer_service_aks
 
 deploy_loader_service_aks
+
 

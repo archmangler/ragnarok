@@ -28,7 +28,7 @@ spec:
         app: loader
     spec:
       nodeSelector:
-        agentpool: dsv4fam
+        agentpool: np001
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
@@ -48,9 +48,9 @@ spec:
         - name: KAFKA_BROKER3_ADDRESS
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
         - name: REDIS_MASTER_ADDRESS
-          value: "my-release-redis-master.default.svc.cluster.local:6379"
+          value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
         - name: REDIS_REPLICA_ADDRESS
-          value: "my-release-redis-replicas.default.svc.cluster.local:6379"
+          value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
         - name: REDIS_PASS
           value: "Q7PjsKOBCa"
         - name: CONSUMER_GROUP
@@ -84,10 +84,6 @@ spec:
         - name: ADMIN_PASSWORD
           value: "somethingrandom"
         volumeMounts:
-          - name: datastore
-            mountPath: /datastore
-          - name: processed
-            mountPath: /processed
           - name: loader-logs
             mountPath: /applogs
           - name: backups
@@ -96,12 +92,6 @@ spec:
           - name: tcp-80
             containerPort: 80
       volumes:
-        - name: datastore
-          persistentVolumeClaim:
-            claimName: datastore-claim
-        - name: processed
-          persistentVolumeClaim:
-            claimName: processed-claim
         - name: loader-logs
           persistentVolumeClaim:
             claimName: loadlogs-claim

@@ -15,7 +15,7 @@ spec:
         app: producer
     spec:
       nodeSelector:
-        agentpool: dsv4fam
+        agentpool: np001
       containers:
       - name: producer
         image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.32
@@ -54,9 +54,9 @@ spec:
         - name: KAFKA_BROKER14_ADDRESS
           value: "kafka-13.kafka-headless.kafka.svc.cluster.local:9092"
         - name: REDIS_MASTER_ADDRESS
-          value: "ragnarok-redis-master.default.svc.cluster.local:6379"
+          value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
         - name: REDIS_REPLICA_ADDRESS
-          value: "ragnarok-redis-replicas.default.svc.cluster.local:6379"
+          value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
         - name: REDIS_PASS
           value: "1PIyhJfjbu"
         - name: CONSUMER_GROUP
@@ -76,10 +76,6 @@ spec:
         - name: METRICS_PORT_NUMBER
           value: "80"
         volumeMounts:
-          - name: datastore
-            mountPath: /datastore
-          - name: processed
-            mountPath: /processed
           - name: applogs
             mountPath: /applogs
           - name: backups
@@ -88,12 +84,6 @@ spec:
           - name: tcp-80
             containerPort: 80
       volumes:
-        - name: datastore
-          persistentVolumeClaim:
-            claimName: datastore-claim
-        - name: processed
-          persistentVolumeClaim:
-            claimName: processed-claim
         - name: applogs
           persistentVolumeClaim:
             claimName: applogs-claim
