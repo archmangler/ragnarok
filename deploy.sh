@@ -12,7 +12,7 @@ function create_namespaces () {
 function deploy_aks_cluster {
   printf "deploying kubernetes cluster on Azure Cloud\n"
   mycwd=`pwd`
-  cd kubernetes-platform/aks-deploy/terraform
+  cd kubernetes-platform/aks-deploy/
   ./deploy.sh
   cd $mycwd
 }
