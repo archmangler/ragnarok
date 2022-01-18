@@ -96,28 +96,24 @@ function deploy_local_storage_aks () {
   cd $mycwd
 }
 
+function update_registry_access () {
+  mycwd=`pwd`
+  cd microservices/producer/build/ && ./create-secret.sh
+  cd $mycwd
+}
 
-#deploy_aks_cluster
+#Deployment to Azure Cloud
+deploy_aks_cluster
 create_namespaces
-
-#deploy_ingress_controller
-
+deploy_ingress_controller
 deploy_prometheus_services
-
 deploy_grafana_services
-
 deploy_redis_services
-
-deploy_ingress_service
-
+deploy_kafka_services
 deploy_sink_service
-
 deploy_local_storage_aks
-
+update_registry_access
 deploy_producer_service_aks
-
 deploy_consumer_service_aks
-
 deploy_loader_service_aks
-
-
+deploy_ingress_service

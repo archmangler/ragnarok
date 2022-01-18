@@ -52,7 +52,7 @@ spec:
         - name: REDIS_REPLICA_ADDRESS
           value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
         - name: REDIS_PASS
-          value: "Q7PjsKOBCa"
+          value: "Yj7Oe21iHz"
         - name: CONSUMER_GROUP
           value: "cg001"
         - name: KCAT_PATH

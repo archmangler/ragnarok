@@ -15,7 +15,7 @@ spec:
         app: producer
     spec:
       nodeSelector:
-        agentpool: np001
+        agentpool: np002
       containers:
       - name: producer
         image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.32
@@ -58,7 +58,7 @@ spec:
         - name: REDIS_REPLICA_ADDRESS
           value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
         - name: REDIS_PASS
-          value: "1PIyhJfjbu"
+          value: "Yj7Oe21iHz"
         - name: CONSUMER_GROUP
           value: "cg002"
         - name: DATA_SOURCE_DIRECTORY
