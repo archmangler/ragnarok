@@ -21,6 +21,9 @@ resource "azurerm_kubernetes_cluster" "ragnarok" {
 
   default_node_pool {
     name            = "np001"
+    enable_auto_scaling = var.enable_auto_scaling_np001
+    max_count = var.max_node_count_np001
+    min_count = var.min_node_count_np001
     node_count      = var.np001_node_count
     vm_size         = var.np001_node_size //"Standard_D2_v2"
     os_disk_size_gb = var.np001_node_disk_size

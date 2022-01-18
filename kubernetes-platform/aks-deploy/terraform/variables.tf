@@ -24,3 +24,19 @@ variable "np001_node_disk_size" {
   description = "size of local disk on default nodepool node server"
   default       = "50"
 }
+
+variable "enable_auto_scaling_np001" {
+   description = "enable/disable autoscaling for default nodepool"
+   default = true
+}
+
+variable "max_node_count_np001" {
+   description = "maximum node count for default node pool"
+   default = 9
+}
+
+variable "min_node_count_np001" {
+   description = "minimum node count for default node pool"
+   default = 3
+}
+
