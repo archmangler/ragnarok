@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------------
 
 ## The StatefulSet installs 3 pods by default
-replicas: 3 
+replicas: 14
 
 ## The kafka image repository
 image: "confluentinc/cp-kafka"
@@ -24,7 +24,7 @@ resources: {}
   # requests:
   #   cpu: 100m
   #   memory: 1024Mi
-kafkaHeapOptions: "-Xmx2G -Xms2G"
+kafkaHeapOptions: "-Xmx8G -Xms8G"
 
 ## Optional Container Security context
 securityContext: {}
@@ -100,7 +100,8 @@ affinity: {}
 
 ## Node labels for pod assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-nodeSelector: {}
+nodeSelector:
+  agentpool: np004
 
 ## Readiness probe config.
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -216,7 +217,7 @@ additionalPorts: {}
 ## Persistence configuration. Specify if and how to persist data to a persistent volume.
 ##
 persistence:
-  enabled: true
+  enabled: false
 
   ## The size of the PersistentVolume to allocate to each Kafka Pod in the StatefulSet. For
   ## production servers this number should likely be much larger.
@@ -299,13 +300,13 @@ prometheus:
     ## Port jmx-exporter exposes Prometheus format metrics to scrape
     port: 5556
 
-    resources:
-      limits:
-        cpu: 200m
-        memory: 1Gi
-      requests:
-        cpu: 100m
-        memory: 100Mi
+#    resources:
+#      limits:
+#        cpu: 200m
+#        memory: 1Gi
+#      requests:
+#        cpu: 100m
+#        memory: 100Mi
 
   ## Prometheus Kafka Exporter: exposes complimentary metrics to JMX Exporter
   kafka:
@@ -326,14 +327,14 @@ prometheus:
     ## Port kafka-exporter exposes for Prometheus to scrape metrics
     port: 9308
 
-    ## Resource limits
-    resources:
-      limits:
-        cpu: 200m
-        memory: 1Gi
-      requests:
-        cpu: 100m
-        memory: 100Mi
+#    ## Resource limits
+#    resources:
+#      limits:
+#        cpu: 200m
+#        memory: 1Gi
+#      requests:
+#        cpu: 100m
+#        memory: 100Mi
 
     # Tolerations for nodes that have taints on them.
     # Useful if you want to dedicate nodes to just run kafka-exporter
@@ -366,7 +367,8 @@ prometheus:
 
     ## Node labels for pod assignment
     ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
-    nodeSelector: {}
+    nodeSelector:
+      agentpool: np004
 
   operator:
     ## Are you using Prometheus Operator?
@@ -441,7 +443,7 @@ configJob:
 topics:
   - name: messages
     config: "cleanup.policy=compact,delete.retention.ms=604799999"
-    partitions: 7
+    partitions: 14
     replicationFactor: 1 
     reassignPartitions: true
   # - name: myNewTopicWithConfig
@@ -482,7 +484,7 @@ zookeeper:
   ## Environmental variables to set in Zookeeper
   env:
     ## The JVM heap size to allocate to Zookeeper
-    ZK_HEAP_SIZE: "1G"
+    ZK_HEAP_SIZE: "2G"
 
   persistence:
     enabled: false
