@@ -4,20 +4,23 @@
 
 [p] master deloyment script wrapper 
  [][] `./deploy.sh <destroy|deploy> <eks|aks|local>`
- [x][] aks cluster deployer script
- [x][] ingress deployment script
- [x][] prometheus metrics collector deployment script
- [x][] Grafana deployment script
- [x][] kafka cluster deployment script
- [x][] redis cluster deployment script
- [x][] microservices deployment scripts
-  [x][] loader/manager service
-  [x][] load-sink service
-  [x][] producer service
-  [x][] consumer service
+ [x][x][] aks cluster deployer script
+ [x][x][] ingress deployment script
+ [x][x][] prometheus metrics collector deployment script
+ [x][x][] Grafana deployment script
+ [x][x][] kafka cluster deployment script
+ [x][x][] microservices deployment scripts
+  [x][x][] loader/manager service
+  [x][x][] load-sink service
+  [x][x][] producer service
+  [x][x][] consumer service
  [][] destroy function: `./deploy.sh <destroy|deploy> <eks|aks|local>`
 
+
+
 ---
+
+
 
 ```
 NAME: ragnarok
@@ -37,6 +40,7 @@ Redis&trade; can be accessed on the following DNS names from within your cluster
 
     ragnarok-redis-master.ragnarok.svc.cluster.local for read/write operations (port 6379)
     ragnarok-redis-replicas.ragnarok.svc.cluster.local for read-only operations (port 6379)
+    ragnarok-redis-replicas.default.svc.cluster.local:
 
 To get your password run:
 

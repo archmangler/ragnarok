@@ -80,7 +80,7 @@ spec:
         - name: STOP_MESSAGE_SEQUENCE_ID
           value: "1100"
         - name: GRAFANA_DASHBOARD_URL
-          value: "http://13.76.193.69/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1" 
+          value: "http://13.67.56.239/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1" 
         - name: ADMIN_PASSWORD
           value: "somethingrandom"
         volumeMounts:

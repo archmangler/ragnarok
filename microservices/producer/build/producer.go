@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -24,14 +23,13 @@ import (
 var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
 var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
 
-var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS") // "192.168.65.2:9092"
-var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:9092"
-var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
-var broker4Address = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
-var broker5Address = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
-var broker6Address = os.Getenv("KAFKA_BROKER6_ADDRESS") // "192.168.65.2:9092"
-var broker7Address = os.Getenv("KAFKA_BROKER7_ADDRESS") // "192.168.65.2:9092"
-
+var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS")   // "192.168.65.2:9092"
+var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS")   // "192.168.65.2:9092"
+var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS")   // "192.168.65.2:9092"
+var broker4Address = os.Getenv("KAFKA_BROKER4_ADDRESS")   // "192.168.65.2:9092"
+var broker5Address = os.Getenv("KAFKA_BROKER5_ADDRESS")   // "192.168.65.2:9092"
+var broker6Address = os.Getenv("KAFKA_BROKER6_ADDRESS")   // "192.168.65.2:9092"
+var broker7Address = os.Getenv("KAFKA_BROKER7_ADDRESS")   // "192.168.65.2:9092"
 var broker8Address = os.Getenv("KAFKA_BROKER8_ADDRESS")   // "192.168.65.2:9092"
 var broker9Address = os.Getenv("KAFKA_BROKER9_ADDRESS")   // "192.168.65.2:9092"
 var broker10Address = os.Getenv("KAFKA_BROKER10_ADDRESS") // "192.168.65.2:9092"
@@ -39,6 +37,20 @@ var broker11Address = os.Getenv("KAFKA_BROKER11_ADDRESS") // "192.168.65.2:9092"
 var broker12Address = os.Getenv("KAFKA_BROKER12_ADDRESS") // "192.168.65.2:9092"
 var broker13Address = os.Getenv("KAFKA_BROKER13_ADDRESS") // "192.168.65.2:9092"
 var broker14Address = os.Getenv("KAFKA_BROKER14_ADDRESS") // "192.168.65.2:9092"
+var broker15Address = os.Getenv("KAFKA_BROKER15_ADDRESS") // "192.168.65.2:9092"
+var broker16Address = os.Getenv("KAFKA_BROKER16_ADDRESS") // "192.168.65.2:9092"
+var broker17Address = os.Getenv("KAFKA_BROKER17_ADDRESS") // "192.168.65.2:9092"
+var broker18Address = os.Getenv("KAFKA_BROKER18_ADDRESS") // "192.168.65.2:9092"
+var broker19Address = os.Getenv("KAFKA_BROKER19_ADDRESS") // "192.168.65.2:9092"
+var broker20Address = os.Getenv("KAFKA_BROKER20_ADDRESS") // "192.168.65.2:9092"
+var broker21Address = os.Getenv("KAFKA_BROKER21_ADDRESS") // "192.168.65.2:9092"
+var broker22Address = os.Getenv("KAFKA_BROKER22_ADDRESS") // "192.168.65.2:9092"
+var broker23Address = os.Getenv("KAFKA_BROKER23_ADDRESS") // "192.168.65.2:9092"
+var broker24Address = os.Getenv("KAFKA_BROKER24_ADDRESS") // "192.168.65.2:9092"
+var broker25Address = os.Getenv("KAFKA_BROKER25_ADDRESS") // "192.168.65.2:9092"
+var broker26Address = os.Getenv("KAFKA_BROKER26_ADDRESS") // "192.168.65.2:9092"
+var broker27Address = os.Getenv("KAFKA_BROKER27_ADDRESS") // "192.168.65.2:9092"
+var broker28Address = os.Getenv("KAFKA_BROKER28_ADDRESS") // "192.168.65.2:9092"
 
 var source_directory string = os.Getenv("DATA_SOURCE_DIRECTORY") + "/"      // "/datastore/"
 var processed_directory string = os.Getenv("DATA_OUT_DIRECTORY") + "/"      //"/processed/"
@@ -474,7 +486,7 @@ func produce(message string, ctx context.Context, topic string) (err error) {
 
 	// intialize the writer with the broker addresses, and the topic
 	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address},
+		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address, broker15Address, broker16Address, broker17Address, broker18Address, broker19Address, broker20Address, broker21Address, broker22Address, broker23Address, broker24Address, broker25Address, broker26Address, broker27Address, broker28Address},
 		Topic:   topic,
 	})
 
@@ -566,17 +578,19 @@ func read_input_sources_redis() (inputs []string) {
 		log.Fatal(err)
 	}
 
-	for _, key := range data {
+	for _, msgID := range data {
 
-		msgID, err := redis.String(conn.Do("HGET", key, "ID"))
-
+		// We can get away with not using this ?
+		/*msgID, err := redis.String(conn.Do("HGET", key, "ID"))
 		if err != nil {
 			fmt.Println("oops, got this: ", err, " skipping ...")
 			continue
-
 		}
+		*/
 
-		fmt.Printf("[debug] got this request ID as input -> %s \n", msgID)
+		//msgID := key
+
+		//only for debug: fmt.Printf("[debug] got this request ID as input -> %s \n", msgID)
 
 		inputQueue = append(inputQueue, msgID)
 
@@ -602,8 +616,8 @@ func read_input_sources(inputDir string) (inputs []string) {
 
 	//To ensure all worker pods, in a kubernetes scenario, don't operate on the same batch of files at any given time:
 	//CONSIDER NOT DOING THIS!!! Maybe you want to preserve the sequence ???
-	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(inputQueue), func(i, j int) { inputQueue[i], inputQueue[j] = inputQueue[j], inputQueue[i] })
+	//rand.Seed(time.Now().UnixNano())
+	//rand.Shuffle(len(inputQueue), func(i, j int) { inputQueue[i], inputQueue[j] = inputQueue[j], inputQueue[i] })
 
 	return inputQueue
 }

@@ -24,14 +24,13 @@ var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
 var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
 var port_specifier string = ":" + os.Getenv("PORT_NUMBER") // /var/log
 
-var broker1Address string = os.Getenv("KAFKA_BROKER1_ADDRESS") // "192.168.65.2:9092"
-var broker2Address string = os.Getenv("KAFKA_BROKER2_ADDRESS") // "192.168.65.2:9092"
-var broker3Address string = os.Getenv("KAFKA_BROKER3_ADDRESS") // "192.168.65.2:9092"
-var broker4Address string = os.Getenv("KAFKA_BROKER4_ADDRESS") // "192.168.65.2:9092"
-var broker5Address string = os.Getenv("KAFKA_BROKER5_ADDRESS") // "192.168.65.2:9092"
-var broker6Address string = os.Getenv("KAFKA_BROKER6_ADDRESS") // "192.168.65.2:9092"
-var broker7Address string = os.Getenv("KAFKA_BROKER7_ADDRESS") // "192.168.65.2:9092"
-
+var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS")   // "192.168.65.2:9092"
+var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS")   // "192.168.65.2:9092"
+var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS")   // "192.168.65.2:9092"
+var broker4Address = os.Getenv("KAFKA_BROKER4_ADDRESS")   // "192.168.65.2:9092"
+var broker5Address = os.Getenv("KAFKA_BROKER5_ADDRESS")   // "192.168.65.2:9092"
+var broker6Address = os.Getenv("KAFKA_BROKER6_ADDRESS")   // "192.168.65.2:9092"
+var broker7Address = os.Getenv("KAFKA_BROKER7_ADDRESS")   // "192.168.65.2:9092"
 var broker8Address = os.Getenv("KAFKA_BROKER8_ADDRESS")   // "192.168.65.2:9092"
 var broker9Address = os.Getenv("KAFKA_BROKER9_ADDRESS")   // "192.168.65.2:9092"
 var broker10Address = os.Getenv("KAFKA_BROKER10_ADDRESS") // "192.168.65.2:9092"
@@ -39,6 +38,20 @@ var broker11Address = os.Getenv("KAFKA_BROKER11_ADDRESS") // "192.168.65.2:9092"
 var broker12Address = os.Getenv("KAFKA_BROKER12_ADDRESS") // "192.168.65.2:9092"
 var broker13Address = os.Getenv("KAFKA_BROKER13_ADDRESS") // "192.168.65.2:9092"
 var broker14Address = os.Getenv("KAFKA_BROKER14_ADDRESS") // "192.168.65.2:9092"
+var broker15Address = os.Getenv("KAFKA_BROKER15_ADDRESS") // "192.168.65.2:9092"
+var broker16Address = os.Getenv("KAFKA_BROKER16_ADDRESS") // "192.168.65.2:9092"
+var broker17Address = os.Getenv("KAFKA_BROKER17_ADDRESS") // "192.168.65.2:9092"
+var broker18Address = os.Getenv("KAFKA_BROKER18_ADDRESS") // "192.168.65.2:9092"
+var broker19Address = os.Getenv("KAFKA_BROKER19_ADDRESS") // "192.168.65.2:9092"
+var broker20Address = os.Getenv("KAFKA_BROKER20_ADDRESS") // "192.168.65.2:9092"
+var broker21Address = os.Getenv("KAFKA_BROKER21_ADDRESS") // "192.168.65.2:9092"
+var broker22Address = os.Getenv("KAFKA_BROKER22_ADDRESS") // "192.168.65.2:9092"
+var broker23Address = os.Getenv("KAFKA_BROKER23_ADDRESS") // "192.168.65.2:9092"
+var broker24Address = os.Getenv("KAFKA_BROKER24_ADDRESS") // "192.168.65.2:9092"
+var broker25Address = os.Getenv("KAFKA_BROKER25_ADDRESS") // "192.168.65.2:9092"
+var broker26Address = os.Getenv("KAFKA_BROKER26_ADDRESS") // "192.168.65.2:9092"
+var broker27Address = os.Getenv("KAFKA_BROKER27_ADDRESS") // "192.168.65.2:9092"
+var broker28Address = os.Getenv("KAFKA_BROKER28_ADDRESS") // "192.168.65.2:9092"
 
 var offSetCommitInterval, _ = strconv.Atoi(os.Getenv("CONSUMER_COMMIT_INTERVAL"))
 
@@ -229,7 +242,7 @@ func produce(message string, ctx context.Context, topic string) {
 
 	// intialize the writer with the broker addresses, and the topic
 	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker6Address, broker7Address},
+		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address, broker15Address, broker16Address, broker17Address, broker18Address, broker19Address, broker20Address, broker21Address, broker22Address, broker23Address, broker24Address, broker25Address, broker26Address, broker27Address, broker28Address},
 		Topic:   topic,
 	})
 
@@ -274,7 +287,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 	}
 
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address},
+		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address, broker15Address, broker16Address, broker17Address, broker18Address, broker19Address, broker20Address, broker21Address, broker22Address, broker23Address, broker24Address, broker25Address, broker26Address, broker27Address, broker28Address},
 		Topic:   topic,
 		GroupID: consumer_group,
 		Dialer:  dialer,

@@ -15,10 +15,10 @@ spec:
         app: producer
     spec:
       nodeSelector:
-        agentpool: np002
+        agentpool: np005
       containers:
       - name: producer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.32
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.35
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
@@ -53,6 +53,34 @@ spec:
           value: "kafka-12.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER14_ADDRESS
           value: "kafka-13.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER15_ADDRESS
+          value: "kafka-14.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER16_ADDRESS
+          value: "kafka-15.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER17_ADDRESS
+          value: "kafka-16.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER18_ADDRESS
+          value: "kafka-17.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER19_ADDRESS
+          value: "kafka-18.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER20_ADDRESS
+          value: "kafka-19.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER21_ADDRESS
+          value: "kafka-20.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER22_ADDRESS
+          value: "kafka-21.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER23_ADDRESS
+          value: "kafka-22.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER24_ADDRESS
+          value: "kafka-23.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER25_ADDRESS
+          value: "kafka-24.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER26_ADDRESS
+          value: "kafka-25.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER27_ADDRESS
+          value: "kafka-26.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER28_ADDRESS
+          value: "kafka-27.kafka-headless.kafka.svc.cluster.local:9092"
         - name: REDIS_MASTER_ADDRESS
           value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
         - name: REDIS_REPLICA_ADDRESS
@@ -78,8 +106,6 @@ spec:
         volumeMounts:
           - name: applogs
             mountPath: /applogs
-          - name: backups
-            mountPath: /backups
         ports:
           - name: tcp-80
             containerPort: 80
@@ -87,9 +113,6 @@ spec:
         - name: applogs
           persistentVolumeClaim:
             claimName: applogs-claim
-        - name: backups
-          persistentVolumeClaim:
-            claimName: backups-claim
       imagePullSecrets:
         - name: ragnarok
 

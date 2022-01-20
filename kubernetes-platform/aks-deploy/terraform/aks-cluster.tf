@@ -57,3 +57,53 @@ resource "azurerm_kubernetes_cluster_node_pool" "workers" {
     project     = "trade matching system load testing"
   }
 }
+
+resource "azurerm_kubernetes_cluster_node_pool" "dataplane" {
+  name                  = "np003"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.ragnarok.id
+  vm_size               = var.np003_node_size
+  enable_auto_scaling   = var.enable_auto_scaling_np003
+  max_count             = var.max_node_count_np003
+  min_count             = var.min_node_count_np003
+  os_disk_size_gb       = var.np003_node_disk_size
+
+  tags = {
+    environment = "poc"
+    project     = "trade matching system load testing"
+    tier        = "storage backbone"
+  }
+}
+
+resource "azurerm_kubernetes_cluster_node_pool" "communications" {
+  name                  = "np004"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.ragnarok.id
+  vm_size               = var.np004_node_size
+  enable_auto_scaling   = var.enable_auto_scaling_np004
+  max_count             = var.max_node_count_np004
+  min_count             = var.min_node_count_np004
+  os_disk_size_gb       = var.np004_node_disk_size
+
+  tags = {
+    environment = "poc"
+    project     = "trade matching system load testing"
+    tier        = "communications backbone"
+  }
+}
+
+resource "azurerm_kubernetes_cluster_node_pool" "producers" {
+  name                  = "np005"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.ragnarok.id
+  vm_size               = var.np005_node_size
+  enable_auto_scaling   = var.enable_auto_scaling_np005
+  max_count             = var.max_node_count_np005
+  min_count             = var.min_node_count_np005
+  os_disk_size_gb       = var.np005_node_disk_size
+
+  tags = {
+    environment = "poc"
+    project     = "trade matching system load testing"
+    tier        = "communications backbone"
+  }
+}
+
+

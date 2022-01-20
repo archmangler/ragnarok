@@ -38,8 +38,8 @@ function create_topics () {
 }
 
 function update_topics () {
-  #beyond the default, scale messages partitions to 14
-  kubectl -n kafka exec testclient -- ./bin/kafka-topics.sh --zookeeper kafka-zookeeper:2181 --topic messages --alter --partitions 14
+  #beyond the default, scale messages partitions to 28
+  kubectl -n kafka exec testclient -- ./bin/kafka-topics.sh --zookeeper kafka-zookeeper:2181 --topic messages --alter --partitions 28
 }
 
 #do it

@@ -310,7 +310,8 @@ master:
   ## @param master.nodeSelector Node labels for Redis&trade; master pods assignment
   ## ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector: {}
+  nodeSelector:
+    agentpool: np002
   ## @param master.tolerations Tolerations for Redis&trade; master pods assignment
   ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   ##
@@ -446,7 +447,7 @@ master:
 replica:
   ## @param replica.replicaCount Number of Redis&trade; replicas to deploy
   ##
-  replicaCount: 7
+  replicaCount: 28
   ## @param replica.configuration Configuration for Redis&trade; replicas nodes
   ## ref: https://redis.io/topics/config
   ##
@@ -624,7 +625,8 @@ replica:
   ## @param replica.nodeSelector Node labels for Redis&trade; replicas pods assignment
   ## ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector: {}
+  nodeSelector:
+    agentpool: np002
   ## @param replica.tolerations Tolerations for Redis&trade; replicas pods assignment
   ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   ##
@@ -757,10 +759,10 @@ replica:
     enabled: true
     ## @param replica.autoscaling.minReplicas Minimum replicas for the pod autoscaling
     ##
-    minReplicas: 7
+    minReplicas: 15
     ## @param replica.autoscaling.maxReplicas Maximum replicas for the pod autoscaling
     ##
-    maxReplicas: 14
+    maxReplicas: 31
     ## @param replica.autoscaling.targetCPU Percentage of CPU to consider when autoscaling
     ##
     targetCPU: "50"
@@ -1113,7 +1115,7 @@ tls:
 metrics:
   ## @param metrics.enabled Start a sidecar prometheus exporter to expose Redis&trade; metrics
   ##
-  enabled: false
+  enabled: true
   ## Bitnami Redis&trade; Exporter image
   ## ref: https://hub.docker.com/r/bitnami/redis-exporter/tags/
   ## @param metrics.image.registry Redis&trade; Exporter image registry

@@ -64,7 +64,6 @@ printf "Building docker image with options: \n"
 printf "Name: ${image_name}\n"
 printf "Tag: ${image_tag}\n"
 printf "Push: ${push_option}\n"
-#printf "Debug: ${debug}\n"
 
 #NOTE:
 repo_name=${image_name}

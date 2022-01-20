@@ -53,4 +53,7 @@ data:
           - targets: ['loader-service.ragnarok.svc.cluster.local:80']
             labels:
               group: 'loader-service'
+          - targets: ['ragnarok-redis-metrics.ragnarok.svc.cluster.local:9121']
+            labels:
+              group: 'redis-service'
 

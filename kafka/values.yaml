@@ -3,7 +3,7 @@
 # ------------------------------------------------------------------------------
 
 ## The StatefulSet installs 3 pods by default
-replicas: 14
+replicas: 28
 
 ## The kafka image repository
 image: "confluentinc/cp-kafka"
@@ -443,7 +443,7 @@ configJob:
 topics:
   - name: messages
     config: "cleanup.policy=compact,delete.retention.ms=604799999"
-    partitions: 14
+    partitions: 28
     replicationFactor: 1 
     reassignPartitions: true
   # - name: myNewTopicWithConfig

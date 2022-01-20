@@ -42,10 +42,10 @@ spec:
         app: consumer
     spec:
       nodeSelector:
-        agentpool: np002
+        agentpool: np003
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.34
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.35
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS

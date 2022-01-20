@@ -25,6 +25,16 @@ Each service is instrumented with the following custom metrics for evaluating th
 - Consumer errors generated in submitting requests to target api
 - Rate of message submission to the target API (by consumers)
 
+
+# Installation
+
+How to install via cli:
+
+* Step #1: configure env.sh, then `source env.sh`
+* Step #2: run the master deploy script: `./deploy.sh`
+* Step #2: run the health check script: `./health.sh`
+* Step #4: review the output of health.sh and troubleshoot any issues.
+
 # Troubleshooting procedure
 
 - View the requests received by the target application (The "black box")

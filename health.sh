@@ -71,6 +71,12 @@ function check_consumer_pool_health() {
 }
 
 
+function check_kafka_topic_health () {
+    OUT=$(kubectl -n kafka exec testclient -- ./bin/kafka-topics.sh --zookeeper kafka-zookeeper:2181 --describe)
+    printf "$OUT\n"
+}
+
+
 #1.
 
 text_divider "checking api endpoint reachable"
@@ -95,5 +101,9 @@ check_producer_pool_health
 #6.
 text_divider "checking consumer pool health"
 check_consumer_pool_health
+
+#7.
+text_divider "checking kafka topic status"
+check_kafka_topic_health 
 
 exit 1
