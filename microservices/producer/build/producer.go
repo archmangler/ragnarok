@@ -52,6 +52,8 @@ var broker26Address = os.Getenv("KAFKA_BROKER26_ADDRESS") // "192.168.65.2:9092"
 var broker27Address = os.Getenv("KAFKA_BROKER27_ADDRESS") // "192.168.65.2:9092"
 var broker28Address = os.Getenv("KAFKA_BROKER28_ADDRESS") // "192.168.65.2:9092"
 
+var brokerServiceAddress = os.Getenv("KAFKA_BROKER_SERVICE_ADDRESS") // e.g "kafka.kafka.svc.cluster.local"
+
 var source_directory string = os.Getenv("DATA_SOURCE_DIRECTORY") + "/"      // "/datastore/"
 var processed_directory string = os.Getenv("DATA_OUT_DIRECTORY") + "/"      //"/processed/"
 var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/" + "producer.log" // "/applogs"
@@ -486,7 +488,7 @@ func produce(message string, ctx context.Context, topic string) (err error) {
 
 	// intialize the writer with the broker addresses, and the topic
 	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address, broker15Address, broker16Address, broker17Address, broker18Address, broker19Address, broker20Address, broker21Address, broker22Address, broker23Address, broker24Address, broker25Address, broker26Address, broker27Address, broker28Address},
+		Brokers: []string{brokerServiceAddress},
 		Topic:   topic,
 	})
 

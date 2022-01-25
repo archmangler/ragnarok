@@ -8,7 +8,12 @@ spec:
   selector:
     matchLabels:
       app: producer
-  replicas: 80
+  replicas: 180
+  strategy:
+     type: RollingUpdate
+     rollingUpdate:
+        maxSurge: 0
+        maxUnavailable: 90%
   template:
     metadata:
       labels:
@@ -25,6 +30,8 @@ spec:
           value: "200"
         - name: NUM_WORKERS
           value: "200"
+        - name: KAFKA_BROKER_SERVICE_ADDRESS
+          value: "kafka-cp-kafka-headless:9092"
         - name: KAFKA_BROKER1_ADDRESS
           value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER2_ADDRESS
