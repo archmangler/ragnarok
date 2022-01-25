@@ -43,7 +43,7 @@ function update_topics () {
 }
 
 #do it
-#install_requirements
+install_requirements
 install_kafka_from_charts
 boot_delay
 scale_brokers
