@@ -2,8 +2,9 @@
 
 *TODO*
 
+```
 [p] master deloyment script wrapper 
- [][] `./deploy.sh <destroy|deploy> <eks|aks|local>`
+ [p][] `./deploy.sh <destroy|deploy> <eks|aks|local>`
  [x][x][] aks cluster deployer script
  [x][x][] ingress deployment script
  [x][x][] prometheus metrics collector deployment script
@@ -14,13 +15,10 @@
   [x][x][] load-sink service
   [x][x][] producer service
   [x][x][] consumer service
- [][] destroy function: `./deploy.sh <destroy|deploy> <eks|aks|local>`
-
-
+ [p][] destroy function: `./deploy.sh <destroy|deploy> <eks|aks|local>`
+```
 
 ---
-
-
 
 ```
 NAME: ragnarok

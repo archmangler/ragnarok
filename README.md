@@ -1,4 +1,9 @@
-# Load Generation System for Trade Matching Systems
+# Load Generation Solution for Trade Matching Systems
+
+An event driven system for generating transaction load on trading systems.
+
+![alt text](images/load-testing-scenario-one-implementation.drawio.png?raw=true "System Architecture")
+
 
 # Operation 
 
