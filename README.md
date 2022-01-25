@@ -3,12 +3,10 @@
 A containerised event-driven system for generating transaction load on trading systems.
 
 ![alt text](images/load-testing-scenario-one-implementation.drawio.png?raw=true "System Architecture")
-![alt text](images/management-portal.png?raw=true "Load Test Management Portal")
-
 
 # Operation 
 
-Users select one of the following options from thew Test Management Portal:
+Users select one of the following options from the Test Management Portal:
 
 - Generate a new sequence of json files as load requests in a range 1 to n.
 - Load pre-existing messages from a kafka topic (sequence n to m) as inputs to a new load test
@@ -16,6 +14,8 @@ Users select one of the following options from thew Test Management Portal:
 - Back up files from previous load test (to use in future load test if needed)
 - Load historical load-test data for input to new load test
 - Access Grafana metrics of previous load tests
+
+![alt text](images/management-portal.png?raw=true "Load Test Management Portal")
 
 Load test activity:
 
