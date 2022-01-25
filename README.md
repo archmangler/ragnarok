@@ -19,7 +19,7 @@ Users select one of the following options from the Test Management Portal:
 
 Load test activity:
 
-- Upon restart, producer pods consume thye generated data files from "/datastore/" and submit to the "messages" kafka topic.
+- Upon restart, producer pods consume thy generated data files from "/datastore/" and submit to the "messages" kafka topic.
 - Consumer pods read JSON messages from the "messages" topic and submit them as HTTP JSON requests via REST to the target ("load sink")
 
 Producers, consumers and management nodes are implemented as containerised golang services in kubernetes pods.
@@ -31,6 +31,9 @@ Each service is instrumented with the following custom metrics for evaluating th
 - Consumer errors generated in submitting requests to target api
 - Rate of message submission to the target API (by consumers)
 
+View the producer, consumer and other system component metrics (including the dummy target application provided) on the metrics dashboard:
+
+![alt text](images/metrics-dashboard.png?raw=true "Metrics Dashboard")
 
 # Installation
 
@@ -43,7 +46,7 @@ How to install via cli:
 
 # Troubleshooting procedure
 
-- View the requests received by the target application (The "black box")
+- View the requests received by the dummy target application (The "black box")
 
 *make a manual request:*
 
