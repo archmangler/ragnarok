@@ -70,12 +70,11 @@ function check_consumer_pool_health() {
     
 }
 
-
 function check_kafka_topic_health () {
-    OUT=$(kubectl -n kafka exec testclient -- ./bin/kafka-topics.sh --zookeeper kafka-zookeeper:2181 --describe)
+    printf "\n"
+    OUT=$(kubectl -n kafka exec kafka-client -- kafka-topics --zookeeper kafka-cp-zookeeper-headless:2181 --describe)
     printf "$OUT\n"
 }
-
 
 #1.
 
