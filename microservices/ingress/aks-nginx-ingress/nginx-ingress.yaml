@@ -4,7 +4,7 @@ metadata:
   name: loadtest-ingress-service
   namespace: ragnarok
   annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "7200"
 #    nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   ingressClassName: nginx

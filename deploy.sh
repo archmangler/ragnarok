@@ -12,7 +12,7 @@ function create_namespaces () {
 function deploy_aks_cluster {
   printf "deploying kubernetes cluster on Azure Cloud\n"
   mycwd=`pwd`
-  cd kubernetes-platform/aks-deploy/
+  cd kubernetes/aks-deploy/
   ./deploy.sh
   cd $mycwd
 }
@@ -41,7 +41,7 @@ function deploy_grafana_services () {
 
 function deploy_kafka_services () {
   mycwd=`pwd`
-  cd kafka 
+  cd kafka-cp
   ./deploy.sh
   cd $mycwd
 }

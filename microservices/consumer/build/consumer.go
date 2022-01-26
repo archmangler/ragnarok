@@ -24,6 +24,8 @@ var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
 var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
 var port_specifier string = ":" + os.Getenv("PORT_NUMBER") // /var/log
 
+var brokerServiceAddress = os.Getenv("KAFKA_BROKER_SERVICE_ADDRESS") // e.g "kafka.kafka.svc.cluster.local"
+
 var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS")   // "192.168.65.2:9092"
 var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS")   // "192.168.65.2:9092"
 var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS")   // "192.168.65.2:9092"
@@ -242,7 +244,7 @@ func produce(message string, ctx context.Context, topic string) {
 
 	// intialize the writer with the broker addresses, and the topic
 	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address, broker15Address, broker16Address, broker17Address, broker18Address, broker19Address, broker20Address, broker21Address, broker22Address, broker23Address, broker24Address, broker25Address, broker26Address, broker27Address, broker28Address},
+		Brokers: []string{brokerServiceAddress},
 		Topic:   topic,
 	})
 
@@ -287,7 +289,7 @@ func consume_payload_data(ctx context.Context, topic string, id int) (message st
 	}
 
 	r := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker1Address, broker2Address, broker3Address, broker4Address, broker5Address, broker5Address, broker6Address, broker7Address, broker8Address, broker9Address, broker10Address, broker11Address, broker12Address, broker13Address, broker14Address, broker15Address, broker16Address, broker17Address, broker18Address, broker19Address, broker20Address, broker21Address, broker22Address, broker23Address, broker24Address, broker25Address, broker26Address, broker27Address, broker28Address},
+		Brokers: []string{brokerServiceAddress},
 		Topic:   topic,
 		GroupID: consumer_group,
 		Dialer:  dialer,

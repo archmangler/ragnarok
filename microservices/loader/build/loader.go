@@ -23,13 +23,17 @@ import (
 )
 
 //get running parameters from container environment
-var namespace = "ragnarok"                                                //os.Getenv("POD_NAMESPACE")
-var grafana_dashboard_url = os.Getenv("GRAFANA_DASHBOARD_URL")            // e.g http://192.168.1.4:32000/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1&refresh=10s
-var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))                      //20
-var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))                //20
-var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS")                   // e.g "192.168.65.2:9092"
-var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS")                   // e.g "192.168.65.2:9092"
-var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS")                   // e.g "192.168.65.2:9092"
+var namespace = "ragnarok"                                     //os.Getenv("POD_NAMESPACE")
+var grafana_dashboard_url = os.Getenv("GRAFANA_DASHBOARD_URL") // e.g http://192.168.1.4:32000/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1&refresh=10s
+var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))           //20
+var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))     //20
+
+//Kafka connection details
+var brokerServiceAddress = os.Getenv("KAFKA_BROKER_SERVICE_ADDRESS") // e.g "kafka.kafka.svc.cluster.local"
+var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS")              // e.g "192.168.65.2:9092"
+var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS")              // e.g "192.168.65.2:9092"
+var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS")              // e.g "192.168.65.2:9092"
+
 var source_directory string = os.Getenv("DATA_SOURCE_DIRECTORY") + "/"    // "/datastore"
 var processed_directory string = os.Getenv("DATA_OUT_DIRECTORY") + "/"    //"/processed"
 var backup_directory string = os.Getenv("BACKUP_DIRECTORY") + "/"         // "/backups"
@@ -698,41 +702,42 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 	status := "unknown"
 
 	//get status
-	cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	/*
+		cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 
-	logger(logFile, "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7)
+		logger(logFile, "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7)
 
-	time.Sleep(5 * time.Second)
+		time.Sleep(5 * time.Second)
 
-	out, err := cmd.Output()
+		out, err := cmd.Output()
 
-	if err != nil {
+		if err != nil {
 
-		logger(logFile, "cannot get status for component: "+service_name+" error. "+err.Error())
-		return "failed"
+			logger(logFile, "cannot get status for component: "+service_name+" error. "+err.Error())
+			return "failed"
 
-	} else {
+		} else {
 
-		logger(logFile, "got service status - ok")
-		status = "ok"
+			logger(logFile, "got service status - ok")
+			status = "ok"
 
-	}
+		}
 
-	temp := strings.Split(string(out), "\n")
-	theOutput := strings.Join(temp, `\n`)
-	logger(logFile, "status check command result: "+theOutput)
+		temp := strings.Split(string(out), "\n")
+		theOutput := strings.Join(temp, `\n`)
+		logger(logFile, "status check command result: "+theOutput)
 
-	//for the user
-	w.Write([]byte("<html> <br>service status: " + theOutput + "</html>"))
-
+		//for the user
+		w.Write([]byte("<html> <br>service status: " + theOutput + "</html>"))
+	*/
 	//restart
 	arg3 = "restart"
-	cmd = exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	logger(logFile, "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7)
 
 	time.Sleep(5 * time.Second) //really should have a loop here waiting for returns ...
 
-	out, err = cmd.Output()
+	out, err := cmd.Output()
 
 	if err != nil {
 		logger(logFile, "cannot restart component: "+service_name+" error. "+err.Error())
@@ -743,8 +748,8 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 		status = "ok"
 	}
 
-	temp = strings.Split(string(out), "\n")
-	theOutput = strings.Join(temp, `\n`)
+	temp := strings.Split(string(out), "\n")
+	theOutput := strings.Join(temp, `\n`)
 	logger(logFile, "restart command result: "+theOutput)
 
 	//for the user
@@ -858,7 +863,7 @@ func dump_kafka_messages_to_input(kafkaTopic string, msgStartSeq string, msgStop
 	logger(logFile, "streaming messages from kafka topic "+kafkaTopic+" in range "+msgStartSeq+" to "+msgStopSeq)
 
 	//Using a wrapper around kcat until we resolve issues with the `kafka-go` method of doing this:
-	cmd := exec.Command(kcat_command_path, "-b", broker1Address, "-t", kafkaTopic, "-o", msgStartSeq, "-c", msgStopSeq, "-C", "-e")
+	cmd := exec.Command(kcat_command_path, "-b", brokerServiceAddress, "-t", kafkaTopic, "-o", msgStartSeq, "-c", msgStopSeq, "-C", "-e")
 
 	logger(logFile, "running shell command: "+cmd.String())
 

@@ -32,7 +32,7 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.43
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.45
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
@@ -41,6 +41,8 @@ spec:
           value: "100"
         - name: NUM_WORKERS
           value: "20"
+        - name: KAFKA_BROKER_SERVICE_ADDRESS
+          value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER1_ADDRESS
           value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER2_ADDRESS

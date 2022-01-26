@@ -24,7 +24,7 @@ resources: {}
   # requests:
   #   cpu: 100m
   #   memory: 1024Mi
-kafkaHeapOptions: "-Xmx8G -Xms8G"
+kafkaHeapOptions: "-Xmx4G -Xms4G"
 
 ## Optional Container Security context
 securityContext: {}
@@ -442,9 +442,8 @@ configJob:
 ##
 topics:
   - name: messages
-    config: "cleanup.policy=compact,delete.retention.ms=604799999"
     partitions: 28
-    replicationFactor: 1 
+    replicationFactor: 28
     reassignPartitions: true
   # - name: myNewTopicWithConfig
   #   partitions: 8
@@ -487,9 +486,9 @@ zookeeper:
     ZK_HEAP_SIZE: "2G"
 
   persistence:
-    enabled: false
+    enabled: true
     ## The amount of PV storage allocated to each Zookeeper pod in the statefulset
-    # size: "2Gi"
+    size: "10Gi"
 
   ## Specify a Zookeeper imagePullPolicy
   ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images

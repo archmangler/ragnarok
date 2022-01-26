@@ -35,7 +35,12 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 80
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 75%
   template:
     metadata:
       labels:
@@ -45,13 +50,15 @@ spec:
         agentpool: np003
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.35
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.36
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
           value: "200"
         - name: NUM_WORKERS
           value: "200"
+        - name: KAFKA_BROKER_SERVICE_ADDRESS
+          value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER1_ADDRESS
           value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER2_ADDRESS

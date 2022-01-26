@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: producer
-  replicas: 180
+  replicas: 3
   strategy:
      type: RollingUpdate
      rollingUpdate:
@@ -23,7 +23,7 @@ spec:
         agentpool: np005
       containers:
       - name: producer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.35
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.36
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
