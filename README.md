@@ -52,7 +52,7 @@ How to install via cli:
 
 * This should result in a cluster able to generate ~ 8000 json http requests per second using the architecture outlined here to a target application.
 
-![alt text](images/basic-resource-requirements-26012022.png?raw=true "Cluster Sizing on Cloud")
+![alt text](images/basic-performance-benchmark-26012022.png?raw=true "Cluster Sizing on Cloud")
 
 # Troubleshooting procedure
 
