@@ -1,9 +1,0 @@
-# For Azure
-default_storage:
-  provisioner: kubernetes.io/azure-disk
-  fsType: ext4
-  type: managed-premium
-  extraParams:
-    storageaccounttype: Premium_LRS
-#    kind: Managed
-#    cachingmode: ReadOnly

@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: producer
-  replicas:  180
+  replicas: 40
   strategy:
      type: RollingUpdate
      rollingUpdate:
@@ -23,20 +23,19 @@ spec:
         agentpool: np005
       containers:
       - name: producer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:0.0.36
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:pulsar-0.0.43
         imagePullPolicy: IfNotPresent
-#        resources:
-#          requests:
-#            memory: "1Gi"
-#            cpu: "4"
-#          limits:
-#            memory: "2Gi"
-#            cpu: "8"
         env:
         - name: NUM_JOBS
-          value: "1"
+          value: "200"
         - name: NUM_WORKERS
-          value: "1"
+          value: "200"
+        - name: PULSAR_BROKER_SERVICE_ADDRESS
+          value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+        - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
+          value: "sub002"
+        - name: MESSAGE_TOPIC
+          value: "ragnarok/requests/transactions"
         - name: KAFKA_BROKER_SERVICE_ADDRESS
           value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER1_ADDRESS
@@ -109,7 +108,7 @@ spec:
           value: "/processed"
         - name: LOCAL_LOGFILE_PATH
           value: "/applogs"
-        - name: MESSAGE_TOPIC
+        - name: KAFKA_MESSAGE_TOPIC
           value: "messages"
         - name: DEADLETTER_TOPIC
           value: "deadLetter"

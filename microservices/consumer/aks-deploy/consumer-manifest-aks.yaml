@@ -35,7 +35,7 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 480
+  replicas: 20
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -50,13 +50,19 @@ spec:
         agentpool: np003
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.36
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:pulsar-0.0.36
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
-          value: "200"
+          value: "1"
         - name: NUM_WORKERS
-          value: "200"
+          value: "1"
+        - name: PULSAR_BROKER_SERVICE_ADDRESS
+          value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+        - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
+          value: "sub001"
+        - name: MESSAGE_TOPIC
+          value: "ragnarok/requests/transactions"
         - name: KAFKA_BROKER_SERVICE_ADDRESS
           value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER1_ADDRESS
@@ -93,8 +99,6 @@ spec:
           value: "1"
         - name: LOCAL_LOGFILE_PATH
           value: "/applogs"
-        - name: MESSAGE_TOPIC
-          value: "messages"
         - name: DEADLETTER_TOPIC
           value: "deadLetter"
         - name: METRICS_TOPIC

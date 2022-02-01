@@ -44,9 +44,9 @@ function update_topics () {
 }
 
 #deploy all the things ...
-#install_requirements
-#install_kafka_from_charts
-#boot_delay
-#create_topics
+install_requirements
+install_kafka_from_charts
+boot_delay
+create_topics
 update_topics
 boot_delay

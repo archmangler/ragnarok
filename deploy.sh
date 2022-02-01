@@ -2,7 +2,7 @@
 #made for mac osx. deal with it.
 
 function create_namespaces () {
-  for ns in ragnarok redis kafka
+  for ns in ragnarok redis pulsar
   do
     echo "creating namespace $ns"
     kubectl create ns $ns
@@ -35,6 +35,13 @@ function deploy_prometheus_services () {
 function deploy_grafana_services () {
   mycwd=`pwd`
   cd monitoring/grafana
+  ./deploy.sh
+  cd $mycwd
+}
+
+function deploy_pulsar_services () {
+  mycwd=`pwd`
+  cd pulsar/aks-deploy/apache-pulsar
   ./deploy.sh
   cd $mycwd
 }
@@ -109,7 +116,8 @@ deploy_ingress_controller
 deploy_prometheus_services
 deploy_grafana_services
 deploy_redis_services
-deploy_kafka_services
+#deploy_kafka_services
+deploy_pulsar_services
 deploy_sink_service
 deploy_local_storage_aks
 update_registry_access
