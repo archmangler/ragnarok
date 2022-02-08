@@ -29,10 +29,9 @@ var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))           //20
 var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))     //20
 
 //Kafka connection details
-var brokerServiceAddress = os.Getenv("KAFKA_BROKER_SERVICE_ADDRESS") // e.g "kafka.kafka.svc.cluster.local"
-var broker1Address = os.Getenv("KAFKA_BROKER1_ADDRESS")              // e.g "192.168.65.2:9092"
-var broker2Address = os.Getenv("KAFKA_BROKER2_ADDRESS")              // e.g "192.168.65.2:9092"
-var broker3Address = os.Getenv("KAFKA_BROKER3_ADDRESS")              // e.g "192.168.65.2:9092"
+var brokerServiceAddress = os.Getenv("PULSAR_BROKER_SERVICE_ADDRESS") // e.g "pulsar://pulsar-mini-broker.pulsar.svc.cluster.local:6650"
+var subscriptionName = os.Getenv("PULSAR_CONSUMER_SUBSCRIPTION_NAME") //e.g sub003
+var primaryTopic string = os.Getenv("MESSAGE_TOPIC")                  // "messages"
 
 var source_directory string = os.Getenv("DATA_SOURCE_DIRECTORY") + "/"    // "/datastore"
 var processed_directory string = os.Getenv("DATA_OUT_DIRECTORY") + "/"    //"/processed"
@@ -54,9 +53,10 @@ var redisReadConnectionAddress string = os.Getenv("REDIS_REPLICA_ADDRESS") //add
 var redisAuthPass string = os.Getenv("REDIS_PASS")
 
 //Kafka related parameters
-var kcat_command_path string = os.Getenv("KCAT_PATH")                     //"/usr/bin/kcat"
+/*var kcat_command_path string = os.Getenv("KCAT_PATH")                     //"/usr/bin/kcat"
 var msgStartSeq, _ = strconv.Atoi(os.Getenv("START_MESSAGE_SEQUENCE_ID")) // start of kafka message offset sequence to stream out to files
 var msgStopSeq, _ = strconv.Atoi(os.Getenv("STOP_MESSAGE_SEQUENCE_ID"))   // end of kafka offset sequence
+*/
 
 //sometimes we operate on global variables ...
 var mutex = &sync.Mutex{}
@@ -480,23 +480,6 @@ func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence in
 
 	w.Write([]byte("<html><h1>Generating and Loading Synthetic Data</h1></html>"))
 
-	//1. Check input directory and clear it [x]
-	//count, err := clear_directory(source_directory)
-	//w.Write([]byte("<html> Cleared stale input data: " + strconv.Itoa(count) + " files." + "</html>"))
-	//if err != nil {
-	//	return "clear input dir failed", err
-	//}
-	//logger(logFile, "cleared input directory files: "+strconv.Itoa(count))
-	//2. Check output directory and clear it [x]
-	//count, err = clear_directory(processed_directory)
-	//w.Write([]byte("<html> Cleared stale processed data: " + strconv.Itoa(count) + " files." + "</html>"))
-	//if err != nil {
-	//	return "clear processed dir failed", err
-	//}
-	//logger(logFile, "cleared processed directory files: "+strconv.Itoa(count))
-
-	//3. Run file sequence generation algorithm [p]
-
 	//Generate input file list and distribute among workers
 	inputQueue := generate_input_sources(source_directory, start_sequence, end_sequence) //Generate the total list of input files in the source dirs
 	metadata := strings.Join(inputQueue, ",")
@@ -618,9 +601,10 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.Write([]byte("<html style=\"font-family:verdana;\"><h1 >Creating input load data from topic sequence ... </h1></html>"))
 		w.Write([]byte("<html style=\"font-family:verdana;\">start of sequence: " + start_of_sequence + "<br></html>"))
-		w.Write([]byte("<html style=\"font-family:verdana;\">end of sequence: " + end_of_sequence + "<br></html>"))
+		//w.Write([]byte("<html style=\"font-family:verdana;\">end of sequence: " + end_of_sequence + "<br></html>"))
 
-		dataCount, errorCount := dump_kafka_messages_to_input(topic0, start_of_sequence, end_of_sequence)
+		//modify to use pulsar
+		dataCount, errorCount := dump_pulsar_messages_to_input(topic0, start_of_sequence)
 
 		w.Write([]byte("<html> <br>Loaded " + strconv.Itoa(dataCount) + " requests in range from topic. With " + strconv.Itoa(errorCount) + " errors. </html>"))
 		w.Write([]byte("<html> <br>Initiating run with new request load data ...</html>"))
@@ -701,35 +685,6 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 	arg7 := namespace
 	status := "unknown"
 
-	//get status
-	/*
-		cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
-
-		logger(logFile, "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7)
-
-		time.Sleep(5 * time.Second)
-
-		out, err := cmd.Output()
-
-		if err != nil {
-
-			logger(logFile, "cannot get status for component: "+service_name+" error. "+err.Error())
-			return "failed"
-
-		} else {
-
-			logger(logFile, "got service status - ok")
-			status = "ok"
-
-		}
-
-		temp := strings.Split(string(out), "\n")
-		theOutput := strings.Join(temp, `\n`)
-		logger(logFile, "status check command result: "+theOutput)
-
-		//for the user
-		w.Write([]byte("<html> <br>service status: " + theOutput + "</html>"))
-	*/
 	//restart
 	arg3 = "restart"
 	cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
@@ -787,7 +742,8 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 	return status
 }
 
-func write_message_from_kafka(msgCount int, errCount int, temp []string, line int) (int, int) {
+//modify to use pulsar
+func write_message_from_pulsar(msgCount int, errCount int, temp []string, line int) (int, int) {
 
 	file_name := source_directory + strconv.Itoa(msgCount) + ".json"
 
@@ -858,33 +814,16 @@ func write_message_to_redis(msgCount int, errCount int, temp []string, line int,
 	return msgCount, errCount
 }
 
-func dump_kafka_messages_to_input(kafkaTopic string, msgStartSeq string, msgStopSeq string) (msgCount int, errCount int) {
+//modify to use pulsar
+func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq string) (msgCount int, errCount int) {
 
-	logger(logFile, "streaming messages from kafka topic "+kafkaTopic+" in range "+msgStartSeq+" to "+msgStopSeq)
+	logger(logFile, "streaming messages from kafka topic "+kafkaTopic+" in range "+msgStartSeq+" to latest message")
 
-	//Using a wrapper around kcat until we resolve issues with the `kafka-go` method of doing this:
-	cmd := exec.Command(kcat_command_path, "-b", brokerServiceAddress, "-t", kafkaTopic, "-o", msgStartSeq, "-c", msgStopSeq, "-C", "-e")
+	//<stream from staertMessageId to latest in stream>
 
-	logger(logFile, "running shell command: "+cmd.String())
-
-	out, err := cmd.Output()
-
-	result_length := strconv.Itoa(len(out))
-
-	if err != nil {
-		fmt.Println("Error Accessing kafka topic messages ", err.Error(), string(out))
-	} else {
-		fmt.Println("Topic request result length: ", result_length)
-	}
-
-	temp := strings.Split(string(out), "\n")
-
-	logger(logFile, "done streaming messages from "+kafkaTopic+" : "+msgStartSeq+" - "+msgStopSeq)
+	logger(logFile, "done streaming messages from "+pulsarTopic+" start: "+msgStartSeq+" to latest message in stream")
 
 	cnt := 0
-
-	//And we're operating  under the presumption we'll be using redis storage here
-	//but perhaps we should make this a selectable option ?
 
 	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
 
@@ -892,7 +831,7 @@ func dump_kafka_messages_to_input(kafkaTopic string, msgStartSeq string, msgStop
 		log.Fatal(err)
 	}
 
-	// Now authenticate
+	// Now authenticate to Redis
 	response, err := conn.Do("AUTH", redisAuthPass)
 
 	if err != nil {
@@ -905,17 +844,12 @@ func dump_kafka_messages_to_input(kafkaTopic string, msgStartSeq string, msgStop
 	//properly closed before exiting the main() function.
 	defer conn.Close()
 
-	//Now pump kafka data into redis loopwise ...
+	//Now pump pulsar data into redis loopwise (is there a faster way to do this?)
 	for line := range temp {
 		cnt++
 		if len(temp[line]) > 0 {
 
-			//writing to file ...
-			//msgCount, errCount = write_message_from_kafka(msgCount, errCount, temp, line)
-
-			//Alternatively, writing to redis REDIFY
 			msgCount, errCount = write_message_to_redis(msgCount, errCount, temp, line, conn)
-
 			logger(logFile, "number of topic messages processed: "+strconv.Itoa(msgCount))
 
 		}

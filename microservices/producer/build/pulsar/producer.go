@@ -26,11 +26,11 @@ var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
 
 var pulsarBrokerURL = os.Getenv("PULSAR_BROKER_SERVICE_ADDRESS")      // e.g "pulsar://pulsar-mini-broker.pulsar.svc.cluster.local:6650"
 var subscriptionName = os.Getenv("PULSAR_CONSUMER_SUBSCRIPTION_NAME") //e.g sub002
+var primaryTopic string = os.Getenv("MESSAGE_TOPIC")                  // "messages"
 
 var source_directory string = os.Getenv("DATA_SOURCE_DIRECTORY") + "/"      // "/datastore/"
 var processed_directory string = os.Getenv("DATA_OUT_DIRECTORY") + "/"      //"/processed/"
 var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/" + "producer.log" // "/applogs"
-var primaryTopic string = os.Getenv("MESSAGE_TOPIC")                        // "messages"
 var topic1 string = os.Getenv("DEADLETTER_TOPIC")                           // "deadLetter"
 var topic2 string = os.Getenv("METRICS_TOPIC")                              // "metrics"
 var hostname string = os.Getenv("HOSTNAME")                                 // "the pod hostname (in k8s) which ran this instance of go"

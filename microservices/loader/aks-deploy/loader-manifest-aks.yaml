@@ -41,6 +41,12 @@ spec:
           value: "100"
         - name: NUM_WORKERS
           value: "20"
+        - name: PULSAR_BROKER_SERVICE_ADDRESS
+          value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+        - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
+          value: "sub002"
+        - name: MESSAGE_TOPIC
+          value: "ragnarok/transactions/requests"
         - name: KAFKA_BROKER_SERVICE_ADDRESS
           value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER1_ADDRESS

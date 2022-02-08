@@ -59,7 +59,7 @@ while getopts n:t:p:d flag
    do
    case "${flag}" in
         n) image_name=${OPTARG};;
-        t) image_tag=${OPTARG};;
+        t) image_tag=pulsar-${OPTARG};;
         p) push_option=${OPTARG};;
 #        d) debug=${OPTARG};;
    esac

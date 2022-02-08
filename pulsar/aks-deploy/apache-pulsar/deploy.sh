@@ -34,8 +34,6 @@ function create_default_topics () {
    sleep 2
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin namespaces create ragnarok/transactions
    sleep 2
-   kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin namespaces create ragnarok/transactions
-   sleep 2
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin namespaces list ragnarok
    sleep 2
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin topics create persistent://ragnarok/transactions/requests
@@ -44,6 +42,6 @@ function create_default_topics () {
 
 }
 
-install_requirements
-deploy_pulsar
+#install_requirements
+#deploy_pulsar
 create_default_topics
