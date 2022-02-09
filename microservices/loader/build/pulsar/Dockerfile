@@ -22,9 +22,6 @@ RUN curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.0/b
 RUN chmod +x ./kubectl
 RUN mv ./kubectl /usr/local/bin/kubectl
 
-#install kafkacat / kcat for kafa message extraction
-RUN apk add kcat
-
 RUN ln -sf /dev/stdout /applogs/loader.log
 
 CMD /loader

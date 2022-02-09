@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -601,10 +603,22 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.Write([]byte("<html style=\"font-family:verdana;\"><h1 >Creating input load data from topic sequence ... </h1></html>"))
 		w.Write([]byte("<html style=\"font-family:verdana;\">start of sequence: " + start_of_sequence + "<br></html>"))
-		//w.Write([]byte("<html style=\"font-family:verdana;\">end of sequence: " + end_of_sequence + "<br></html>"))
+		w.Write([]byte("<html style=\"font-family:verdana;\">end of sequence: " + end_of_sequence + "<br></html>"))
+
+		SoS, err := strconv.ParseInt(start_of_sequence, 10, 64)
+
+		if err != nil {
+			fmt.Println("unable to convert string start_of_sequence to int64")
+		}
+
+		EoS, err := strconv.ParseInt(end_of_sequence, 10, 64)
+
+		if err != nil {
+			fmt.Println("unable to convert string end_of_sequence to int64")
+		}
 
 		//modify to use pulsar
-		dataCount, errorCount := dump_pulsar_messages_to_input(topic0, start_of_sequence)
+		dataCount, errorCount := dump_pulsar_messages_to_input(primaryTopic, SoS, EoS)
 
 		w.Write([]byte("<html> <br>Loaded " + strconv.Itoa(dataCount) + " requests in range from topic. With " + strconv.Itoa(errorCount) + " errors. </html>"))
 		w.Write([]byte("<html> <br>Initiating run with new request load data ...</html>"))
@@ -767,7 +781,48 @@ func write_message_from_pulsar(msgCount int, errCount int, temp []string, line i
 	return msgCount, errCount
 }
 
+func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int64, b []byte, conn redis.Conn) (int, int) {
+	//write an array of binary messages to redis, each line being a single entry in the array
+
+	var t Payload
+
+	err := json.Unmarshal(b, &t)
+
+	if err == nil {
+		fmt.Printf("%+v\n", t)
+	} else {
+		fmt.Println(err)
+		fmt.Printf("%+v\n", t)
+	}
+
+	//We should make this Generic as we cannot have foreknowledge of the payload.
+	Name := t.Name
+	ID := t.ID
+	Time := t.Time
+	Data := t.Data
+	Eventname := t.Eventname
+
+	//REDIFY
+	_, err = conn.Do("HMSET", msgIndex, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
+
+	if err != nil {
+		logger(logFile, "error writing message to redis: "+err.Error())
+		//record as a failure metric
+		recordFailureMetrics()
+		errCount++
+
+	} else {
+		logger(logFile, "wrote message to redis. count: "+strconv.Itoa(msgCount))
+		//record as a success metric
+		recordSuccessMetrics()
+		msgCount++
+	}
+
+	return msgCount, errCount
+}
+
 func write_message_to_redis(msgCount int, errCount int, temp []string, line int, conn redis.Conn) (int, int) {
+	//write an array of messages to redis, each line being a single entry in the array
 
 	s := temp[line]
 
@@ -814,15 +869,9 @@ func write_message_to_redis(msgCount int, errCount int, temp []string, line int,
 	return msgCount, errCount
 }
 
-//modify to use pulsar
-func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq string) (msgCount int, errCount int) {
+func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (msgCount int, errCount int) {
 
-	logger(logFile, "streaming messages from kafka topic "+kafkaTopic+" in range "+msgStartSeq+" to latest message")
-
-	//<stream from staertMessageId to latest in stream>
-
-	logger(logFile, "done streaming messages from "+pulsarTopic+" start: "+msgStartSeq+" to latest message in stream")
-
+	//dump the extracted pulsar messages to REDIS
 	cnt := 0
 
 	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
@@ -844,16 +893,98 @@ func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq string) (msgC
 	//properly closed before exiting the main() function.
 	defer conn.Close()
 
-	//Now pump pulsar data into redis loopwise (is there a faster way to do this?)
-	for line := range temp {
-		cnt++
-		if len(temp[line]) > 0 {
+	read := false
 
-			msgCount, errCount = write_message_to_redis(msgCount, errCount, temp, line, conn)
-			logger(logFile, "number of topic messages processed: "+strconv.Itoa(msgCount))
+	for reader.HasNext() {
+
+		cnt++
+
+		msg, err := reader.Next(context.Background())
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//can I access the details of the message ? yes
+		fmt.Printf("Read message id: %v -> %#v\n", msg.ID().EntryID(), msg.ID())
+
+		//Can i serialize into bytes? Yes
+		myBytes := msg.ID().Serialize()
+
+		//Can I store it somewhere? Perhaps a map ? or even on disk in a file ?
+		//In other words: Can I write a byte[] slice to a file? Yes!
+		msgIndex := msg.ID().EntryID()
+
+		if msgIndex == startMsgIndex {
+			fmt.Println("start read: ", msgIndex)
+			read = true
+		}
+
+		if msgIndex > stopMsgIndex {
+			fmt.Println("stop reading: ", msgIndex)
+			read = false
+		}
+
+		if read == false {
+
+			fmt.Println("skip message", msgIndex)
+
+		} else {
+
+			//E.G:
+			//fname := strconv.FormatInt(msgIndex, 10) + ".dat"
+			fmt.Println("written bytes: ", myBytes)
+			//
+			//WRITE TO REDIS INSTEAD
+			//
+
+			msgCount, errCount = write_binary_message_to_redis(msgCount, errCount, msgIndex, myBytes, conn)
+
+			fmt.Printf("Received message msgId: %#v -- content: '%s' published at %v\n",
+				msg.ID(), string(msg.Payload()), msg.PublishTime())
+
+			logger(logFile, "number of topic messages processed: "+strconv.Itoa(msgCount)+" errors: "+strconv.Itoa(errCount))
 
 		}
 	}
+
+	return msgCount, errCount
+}
+
+//modified to use pulsar
+func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq int64, msgStopSeq int64) (msgCount int, errCount int) {
+
+	logger(logFile, "streaming messages from topic "+pulsarTopic+" in range")
+
+	client, err := pulsar.NewClient(
+		pulsar.ClientOptions{
+			URL:               brokerServiceAddress,
+			OperationTimeout:  30 * time.Second,
+			ConnectionTimeout: 30 * time.Second,
+		})
+
+	if err != nil {
+		log.Fatalf("Could not instantiate Pulsar client: %v", err)
+	}
+
+	defer client.Close()
+
+	reader, err := client.CreateReader(pulsar.ReaderOptions{
+		Topic:          primaryTopic,
+		StartMessageID: pulsar.EarliestMessageID(),
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer reader.Close()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	msgCount, errCount = streamAll(reader, msgStartSeq, msgStopSeq)
 
 	return msgCount, errCount
 }
