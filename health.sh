@@ -28,6 +28,11 @@ function check_kafka_cluster() {
     printf "$OUT"
 }
 
+function check_pulsar_cluster() {
+    OUT=$(kubectl get pods -n pulsar)
+    printf "$OUT"
+}
+
 function check_redis_cluster() {
     OUT=$(kubectl get pods -n ragnarok| egrep -i redis)
     printf "$OUT"
@@ -88,6 +93,10 @@ check_kubernetes_ingress
 #3.
 text_divider "checking kafka cluster health"
 check_kafka_cluster
+
+#4.
+text_divider "checking pulsar cluster health"
+check_pulsar_cluster
 
 #4.
 text_divider "checking redis cluster health"

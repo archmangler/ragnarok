@@ -27,21 +27,28 @@ function deploy_pulsar () {
 
 }
 
-function create_default_topics () {
+function create_default_topics {
 
-   printf "creating and configuring default topics ..."
+   printf "creating and configuring default topics ...\n"
+ 
+   for i in `seq 1 10`
+   do
+     kubectl get pods -n pulsar| egrep toolset
+     sleep 5
+   done
+
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin tenants create ragnarok
-   sleep 2
+   sleep 5
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin namespaces create ragnarok/transactions
-   sleep 2
+   sleep 5
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin namespaces list ragnarok
-   sleep 2
+   sleep 5
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin topics create persistent://ragnarok/transactions/requests
-   sleep 2
+   sleep 5
    kubectl -n pulsar exec -it  pulsar-toolset-0 -- /pulsar/bin/pulsar-admin topics list ragnarok/transactions
 
 }
 
-#install_requirements
-#deploy_pulsar
+install_requirements
+deploy_pulsar
 create_default_topics

@@ -32,7 +32,7 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:0.0.45
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:pulsar-0.0.45
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
