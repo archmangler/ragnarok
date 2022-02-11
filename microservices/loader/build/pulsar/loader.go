@@ -30,7 +30,7 @@ var grafana_dashboard_url = os.Getenv("GRAFANA_DASHBOARD_URL") // e.g http://192
 var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))           //20
 var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))     //20
 
-//Kafka connection details
+//pulsar connection details
 var brokerServiceAddress = os.Getenv("PULSAR_BROKER_SERVICE_ADDRESS") // e.g "pulsar://pulsar-mini-broker.pulsar.svc.cluster.local:6650"
 var subscriptionName = os.Getenv("PULSAR_CONSUMER_SUBSCRIPTION_NAME") //e.g sub003
 var primaryTopic string = os.Getenv("MESSAGE_TOPIC")                  // "messages"
@@ -40,7 +40,6 @@ var processed_directory string = os.Getenv("DATA_OUT_DIRECTORY") + "/"    //"/pr
 var backup_directory string = os.Getenv("BACKUP_DIRECTORY") + "/"         // "/backups"
 var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/" + "loader.log" // "/applogs"
 
-var topic0 string = os.Getenv("MESSAGE_TOPIC")                     // "messages"
 var topic1 string = os.Getenv("DEADLETTER_TOPIC")                  // "deadLetter" - for failed message file generation
 var topic2 string = os.Getenv("METRICS_TOPIC")                     // "metrics" - for metrics that should be streamed via a topic/queue
 var hostname string = os.Getenv("HOSTNAME")                        // "the pod hostname (in k8s) which ran this instance of go"
@@ -49,16 +48,13 @@ var end_sequence = 10000                                           // end of mes
 var port_specifier string = ":" + os.Getenv("METRICS_PORT_NUMBER") // port for metrics service to listen on
 var taskCount int = 0
 
+//function call count tracking counter
+var streamAllCount int = 0
+
 //Redis data storage details
 var redisWriteConnectionAddress string = os.Getenv("REDIS_MASTER_ADDRESS") //address:port combination e.g  "my-release-redis-master.default.svc.cluster.local:6379"
 var redisReadConnectionAddress string = os.Getenv("REDIS_REPLICA_ADDRESS") //address:port combination e.g  "my-release-redis-replicas.default.svc.cluster.local:6379"
 var redisAuthPass string = os.Getenv("REDIS_PASS")
-
-//Kafka related parameters
-/*var kcat_command_path string = os.Getenv("KCAT_PATH")                     //"/usr/bin/kcat"
-var msgStartSeq, _ = strconv.Atoi(os.Getenv("START_MESSAGE_SEQUENCE_ID")) // start of kafka message offset sequence to stream out to files
-var msgStopSeq, _ = strconv.Atoi(os.Getenv("STOP_MESSAGE_SEQUENCE_ID"))   // end of kafka offset sequence
-*/
 
 //sometimes we operate on global variables ...
 var mutex = &sync.Mutex{}
@@ -148,27 +144,29 @@ func logger(logFile string, logMessage string) {
 	msgTs := now.UnixNano()
 
 	//when we're not logging to file  ...
-	fmt.Println("[log]", strconv.FormatInt(msgTs, 10), logMessage)
+	fmt.Println("[log]", logFile, strconv.FormatInt(msgTs, 10), logMessage)
 
 	//When we're logging to file ...logFile
+	/*
+		mutex.Lock()
 
-	mutex.Lock()
+		f, e := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 
-	f, e := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if e != nil {
+			log.Fatalf("error opening log file: %v", e)
+		}
 
-	if e != nil {
-		log.Fatalf("error opening log file: %v", e)
-	}
+		defer f.Close()
 
-	defer f.Close()
+		log.SetOutput(f)
 
-	log.SetOutput(f)
+		//include the hostname on each log entry
+		logMessage = "[host=" + hostname + "]" + logMessage
+		log.Println(logMessage)
 
-	//include the hostname on each log entry
-	logMessage = "[host=" + hostname + "]" + logMessage
-	log.Println(logMessage)
+		mutex.Unlock()
+	*/
 
-	mutex.Unlock()
 }
 
 func clear_directory(Dir string) (int, error) {
@@ -765,56 +763,46 @@ func write_message_from_pulsar(msgCount int, errCount int, temp []string, line i
 	f, err := os.Create(file_name)
 
 	if err != nil {
-		logger(logFile, "error generating request message file: "+err.Error())
+		logger("write_message_from_pulsar", "error generating request message file: "+err.Error())
 		//record as a failure metric
 		errCount++
 
 	} else {
-		logger(logFile, "wrote historical topic message to file: "+file_name)
+		logger("write_message_from_pulsar", "wrote historical topic message to file: "+file_name)
 		//record as a success metric
 		msgCount++
 	}
 
-	logger(logFile, "will write this topic message to file: "+temp[line])
+	logger("write_message_from_pulsar", "will write this topic message to file: "+temp[line])
 	_, err = f.WriteString(temp[line])
 	f.Close()
 	return msgCount, errCount
 }
 
-func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int64, b []byte, conn redis.Conn) (int, int) {
-	//write an array of binary messages to redis, each line being a single entry in the array
+func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int64, d map[string]string, conn redis.Conn) (int, int) {
 
-	var t Payload
+	logger("write_binary_message_to_redis", "[calling write_binary_message_to_redis]")
 
-	err := json.Unmarshal(b, &t)
-
-	if err == nil {
-		fmt.Printf("%+v\n", t)
-	} else {
-		fmt.Println(err)
-		fmt.Printf("%+v\n", t)
-	}
-
-	//We should make this Generic as we cannot have foreknowledge of the payload.
-	Name := t.Name
-	ID := t.ID
-	Time := t.Time
-	Data := t.Data
-	Eventname := t.Eventname
+	Name := d["Name"]
+	ID := d["ID"]
+	Time := d["Time"]
+	Data := d["Data"]
+	Eventname := d["Eventname"]
 
 	//REDIFY
-	_, err = conn.Do("HMSET", msgIndex, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
+	fmt.Println("inserting : ", Name, ID, Time, Data, Eventname)
+
+	logger("write_binary_message_to_redis", "DEBUG> inserting to redis with Do - HMSET ...")
+	_, err := conn.Do("HMSET", msgIndex, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
 
 	if err != nil {
-		logger(logFile, "error writing message to redis: "+err.Error())
+		logger("write_binary_message_to_redis", "error writing message to redis: "+err.Error())
 		//record as a failure metric
-		recordFailureMetrics()
 		errCount++
 
 	} else {
-		logger(logFile, "wrote message to redis. count: "+strconv.Itoa(msgCount))
+		logger("write_binary_message_to_redis", "wrote message to redis. count: "+strconv.Itoa(msgCount))
 		//record as a success metric
-		recordSuccessMetrics()
 		msgCount++
 	}
 
@@ -871,14 +859,22 @@ func write_message_to_redis(msgCount int, errCount int, temp []string, line int,
 
 func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (msgCount int, errCount int) {
 
+	streamAllCount++
+
+	logger(logFile, "DEBUG> (streamAll)[calling streamAll] Call Count: "+strconv.Itoa(streamAllCount))
+
 	//dump the extracted pulsar messages to REDIS
-	cnt := 0
+	msgCount = 0
+	errCount = 0
+	readCount := 0
 
 	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
 
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	logger(logFile, "DEBUG> (streamAll) connecting to redis...")
 
 	// Now authenticate to Redis
 	response, err := conn.Do("AUTH", redisAuthPass)
@@ -893,11 +889,9 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 	//properly closed before exiting the main() function.
 	defer conn.Close()
 
-	read := false
+	logger(logFile, "DEBUG> (streamAll) looping through messages with reader.HasNext() ...")
 
 	for reader.HasNext() {
-
-		cnt++
 
 		msg, err := reader.Next(context.Background())
 
@@ -905,57 +899,100 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 			log.Fatal(err)
 		}
 
-		//can I access the details of the message ? yes
-		fmt.Printf("Read message id: %v -> %#v\n", msg.ID().EntryID(), msg.ID())
-
-		//Can i serialize into bytes? Yes
-		myBytes := msg.ID().Serialize()
-
-		//Can I store it somewhere? Perhaps a map ? or even on disk in a file ?
-		//In other words: Can I write a byte[] slice to a file? Yes!
+		//can I access the details of the message?
 		msgIndex := msg.ID().EntryID()
 
-		if msgIndex == startMsgIndex {
-			fmt.Println("start read: ", msgIndex)
-			read = true
+		logger(logFile, "DEBUG> (streamAll) Extracting message details ...")
+		fmt.Printf("Read message id: -> %v <- ... => %#v\n", msgIndex, msg.ID())
+
+		//get the metadata as string for parsing
+		metadata := fmt.Sprintf("%#v", msg.ID())
+
+		//get the actual message content
+		content := string(msg.Payload())
+
+		//Can i serialize into bytes? Yes
+		//logger(logFile, "DEBUG> (streamAll) Serializing message data ...")
+		//myBytes := msg.ID().Serialize()
+
+		//Can I store it somewhere? Perhaps a map ?  REDIS or even on disk in a file ?
+		//In other words: Can I write a byte[] slice to a file? Yes!
+
+		logger(logFile, "DEBUG> (streamAll) got message index...")
+
+		/*
+			if msgIndex == startMsgIndex {
+
+				fmt.Println("start read: ", msgIndex)
+				logger("streamAll", "DEBUG> (streamAll) Begin reading message stream at start point ...")
+				read = true
+			}
+
+			if msgIndex == stopMsgIndex+1 {
+				fmt.Println("stop reading: ", msgIndex)
+				logger("streamAll", "DEBUG> (streamAll) stop reading message stream at start point ...")
+				read = false
+			}
+		*/
+
+		//This is terrible. There has to be a better way to do this.Please replace once you've read:
+		//https://pulsar.apache.org/docs/en/2.2.0/concepts-messaging/
+		for i := startMsgIndex; i <= stopMsgIndex; i++ {
+
+			if msgIndex == i {
+
+				logger("streamAll", "DEBUG> (streamAll) got message content for processing: "+content)
+				logger("streamAll", "DEBUG> (streamAll) got message metadata for processing: "+metadata)
+
+				dataMap := parseJSONmessage(content)
+
+				for f := range dataMap {
+					fmt.Println("got struct field from map -> ", f, dataMap[f])
+				}
+
+				msgCount, errCount = write_binary_message_to_redis(msgCount, errCount, msgIndex, dataMap, conn)
+
+				if errCount == 0 {
+					readCount++
+				}
+
+				logger("streamAll", "number of topic messages processed: "+strconv.Itoa(msgCount)+" errors: "+strconv.Itoa(errCount))
+				logger("streamAll", "processing count = "+strconv.Itoa(readCount))
+			}
 		}
 
-		if msgIndex > stopMsgIndex {
-			fmt.Println("stop reading: ", msgIndex)
-			read = false
-		}
-
-		if read == false {
-
-			fmt.Println("skip message", msgIndex)
-
-		} else {
-
-			//E.G:
-			//fname := strconv.FormatInt(msgIndex, 10) + ".dat"
-			fmt.Println("written bytes: ", myBytes)
-			//
-			//WRITE TO REDIS INSTEAD
-			//
-
-			msgCount, errCount = write_binary_message_to_redis(msgCount, errCount, msgIndex, myBytes, conn)
-
-			fmt.Printf("Received message msgId: %#v -- content: '%s' published at %v\n",
-				msg.ID(), string(msg.Payload()), msg.PublishTime())
-
-			logger(logFile, "number of topic messages processed: "+strconv.Itoa(msgCount)+" errors: "+strconv.Itoa(errCount))
-
-		}
 	}
 
 	return msgCount, errCount
 }
 
+//custom parsing of JSON struct
+//Expected format as read from Pulsar topic: [{ "Name":"newOrder","ID":"14","Time":"1644469469070529888","Data":"loader-c7dc569f-8bkql","Eventname":"transactionRequest"}]
+func parseJSONmessage(theString string) map[string]string {
+
+	dMap := make(map[string]string)
+
+	theString = strings.Trim(theString, "[")
+	theString = strings.Trim(theString, "]")
+
+	data := Payload{}
+
+	json.Unmarshal([]byte(theString), &data)
+
+	dMap["Name"] = string(data.Name)
+	dMap["ID"] = string(data.ID)
+	dMap["Time"] = string(data.Time)
+	dMap["Data"] = string(data.Data)
+	dMap["Eventname"] = string(data.Eventname)
+
+	return dMap
+}
+
 //modified to use pulsar
 func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq int64, msgStopSeq int64) (msgCount int, errCount int) {
 
-	logger(logFile, "streaming messages from topic "+pulsarTopic+" in range")
-
+	logger("dump_pulsar_messages_to_input", "DEBUG> preparing to stream messages from topic "+pulsarTopic+" in range")
+	logger("dump_pulsar_messages_to_input", "DEBUG> preparing a pulsar client connection ...")
 	client, err := pulsar.NewClient(
 		pulsar.ClientOptions{
 			URL:               brokerServiceAddress,
@@ -967,22 +1004,25 @@ func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq int64, msgSto
 		log.Fatalf("Could not instantiate Pulsar client: %v", err)
 	}
 
+	logger("dump_pulsar_messages_to_input", "DEBUG> (dump_pulsar_messages_to_input) deferring pulsar client close ....var")
 	defer client.Close()
 
+	logger("dump_pulsar_messages_to_input", "DEBUG> (dump_pulsar_messages_to_input) creating a pulsar reader (CreateReader) ...")
 	reader, err := client.CreateReader(pulsar.ReaderOptions{
-		Topic:          primaryTopic,
+		Topic:          pulsarTopic,
 		StartMessageID: pulsar.EarliestMessageID(),
 	})
 
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	logger("dump_pulsar_messages_to_input", "DEBUG> (dump_pulsar_messages_to_input) deferring reader close")
 	defer reader.Close()
 
+	logger("dump_pulsar_messages_to_input", "DEBUG> (dump_pulsar_messages_to_input) checking reader error (CreateReader) ...")
+
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("got error creating reader: ", err) //Alternatively: log.Fatal(err)
 	}
+
+	logger("dump_pulsar_messages_to_input", "DEBUG> (dump_pulsar_messages_to_input) preparing to stream out all messages ...")
 
 	msgCount, errCount = streamAll(reader, msgStartSeq, msgStopSeq)
 

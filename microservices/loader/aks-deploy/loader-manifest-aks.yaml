@@ -32,15 +32,15 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:pulsar-0.0.45
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:pulsar-0.0.54
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
           value: "ragnarok"
         - name: NUM_JOBS
-          value: "100"
+          value: "1"
         - name: NUM_WORKERS
-          value: "20"
+          value: "1"
         - name: PULSAR_BROKER_SERVICE_ADDRESS
           value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
         - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
@@ -75,8 +75,6 @@ spec:
           value: "/backups"
         - name: LOCAL_LOGFILE_PATH
           value: "/applogs"
-        - name: MESSAGE_TOPIC
-          value: "messages"
         - name: DEADLETTER_TOPIC
           value: "deadLetter"
         - name: METRICS_TOPIC

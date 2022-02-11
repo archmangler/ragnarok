@@ -35,7 +35,7 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 20
+  replicas: 10
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -50,7 +50,7 @@ spec:
         agentpool: np003
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:pulsar-0.0.36
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:pulsar-0.0.38
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS

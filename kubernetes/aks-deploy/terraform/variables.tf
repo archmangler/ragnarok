@@ -95,18 +95,18 @@ variable "enable_auto_scaling_np003" {
 
 variable "max_node_count_np003" {
   description = "maximum node count for this  node pool"
-  default     = 6
+  default     = 9 
 }
 
 variable "min_node_count_np003" {
   description = "minimum node count for default node pool"
-  default     = 3 
+  default     = 6
 }
 
 //node pool 4 - for redis and kafka doing the heavy lifting
 variable "np004_node_count" {
   description = "maximum number of nodes in this node pool"
-  default     = 3
+  default     = 9
 }
 
 variable "np004_node_size" {
@@ -126,12 +126,12 @@ variable "enable_auto_scaling_np004" {
 
 variable "max_node_count_np004" {
   description = "maximum node count for this node pool"
-  default     = 6
+  default     = 9
 }
 
 variable "min_node_count_np004" {
   description = "minimum node count for default node pool"
-  default     = 3
+  default     = 6
 }
 
 //node pool 5 - for producers doing the heavy lifting
@@ -157,11 +157,11 @@ variable "enable_auto_scaling_np005" {
 
 variable "max_node_count_np005" {
   description = "maximum node count for default node pool"
-  default     = 4
+  default     = 9
 }
 
 variable "min_node_count_np005" {
   description = "minimum node count for default node pool"
-  default     = 3 
+  default     = 6
 }
 

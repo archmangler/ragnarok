@@ -6,12 +6,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"os"
 	"strconv"
+	"strings"
 
 	"time"
 
@@ -60,11 +62,11 @@ var requestCount int = 0
 */
 
 type Payload struct {
-	Name      string `json:"name"`
-	ID        string `json:"id"`
-	Time      string `json:"time"`
-	Data      string `json:"data"`
-	Eventname string `json:"eventname"`
+	Name      string
+	ID        string
+	Time      string
+	Data      string
+	Eventname string
 }
 
 //Instrumentation
@@ -144,26 +146,40 @@ func check_errors(e error, jobId int) {
 
 }
 
-//simple illustrative data check for message (this is optional, really)
-func data_check(message string) (err error) {
+//custom parsing of JSON struct
+//Expected format as read from Pulsar topic:
+//[{ "Name":"newOrder","ID":"14","Time":"1644469469070529888","Data":"loader-c7dc569f-8bkql","Eventname":"transactionRequest"}]
+func parseJSONmessage(theString string) map[string]string {
+
+	dMap := make(map[string]string)
+
+	theString = strings.Trim(theString, "[")
+	theString = strings.Trim(theString, "]")
 
 	data := Payload{}
 
-	err = json.Unmarshal([]byte(message), &data)
+	json.Unmarshal([]byte(theString), &data)
 
-	if err != nil {
+	dMap["Name"] = string(data.Name)
+	dMap["ID"] = string(data.ID)
+	dMap["Time"] = string(data.Time)
+	dMap["Data"] = string(data.Data)
+	dMap["Eventname"] = string(data.Eventname)
 
-		logMessage := "incorrect message format (not readable json)" + err.Error()
-		logger(logFile, logMessage)
+	return dMap
+}
 
-		//publish metric to the metrics topic
-		errorCount += 1
+//simple illustrative data check for message (this is optional, really)
+func data_check(message string) (err error) {
 
-		logMessage = "Error Count: " + strconv.Itoa(errorCount)
-		logger(logFile, logMessage)
+	dMap := parseJSONmessage(message)
 
-		//TODO: Format as JSON
-		//produce(message, ctx, topic2)
+	for k := range dMap {
+		if len(dMap[k]) > 0 {
+			fmt.Println("checking payload message field (ok): ", k, " -> ", dMap[k])
+		} else {
+			return errors.New("empty field! ... " + k)
+		}
 	}
 
 	return nil
@@ -278,9 +294,11 @@ func consume_payload_data(client pulsar.Client, topic string, id int) {
 
 	}
 
-	if err := consumer.Unsubscribe(); err != nil {
-		log.Fatal(err)
-	}
+	/*
+		if err := consumer.Unsubscribe(); err != nil {
+			log.Fatal(err)
+		}
+	*/
 
 }
 

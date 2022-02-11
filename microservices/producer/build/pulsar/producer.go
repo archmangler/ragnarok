@@ -361,7 +361,8 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 	logger(logFile, "completed task"+strconv.Itoa(taskCount))
 
-	if taskCount == numWorkers-1 {
+	//please fix this!!
+	if taskCount == numWorkers-1 || taskCount == numWorkers {
 		//delete (or move) all processed files from Redis to somewhere else
 		purgeProcessedRedis(conn)
 	}

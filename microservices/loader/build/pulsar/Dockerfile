@@ -8,6 +8,10 @@ COPY go.sum ./
 RUN go mod download
 COPY *.go ./
 
+#Pulsar pre-requisites in apk
+RUN apk add gcc
+RUN apk add musl-dev
+
 RUN go build -o /loader
 
 RUN mkdir -p /datastore
