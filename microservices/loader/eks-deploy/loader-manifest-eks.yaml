@@ -1,17 +1,4 @@
 ---
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: loadlogs-claim
-  namespace: ragnarok
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: azurefile
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -20,12 +7,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: loader
+      app.kubernetes.io/name: loader
   replicas: 1
   template:
     metadata:
       labels:
-        app: loader
+        app.kubernetes.io/name: loader
     spec:
 #      nodeSelector:
 #        agentpool: np001
@@ -89,21 +76,16 @@ spec:
           value: "http://13.67.56.239/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1" 
         - name: ADMIN_PASSWORD
           value: "somethingrandom"
-        volumeMounts:
-          - name: loader-logs
-            mountPath: /applogs
-          - name: backups
-            mountPath: /backups
+#        volumeMounts:
+#          - name: backups
+#            mountPath: /backups
         ports:
           - name: tcp-80
             containerPort: 80
-      volumes:
-        - name: loader-logs
-          persistentVolumeClaim:
-            claimName: loadlogs-claim
-        - name: backups
-          persistentVolumeClaim:
-            claimName: backups-claim
+#      volumes:
+#        - name: backups
+#          persistentVolumeClaim:
+#            claimName: backups-claim
       imagePullSecrets:
         - name: ragnarok
 
@@ -113,19 +95,16 @@ kind: Service
 metadata:
   name: loader-service
   namespace: ragnarok
-  labels:
-    app: loader-service
 spec:
   type: ClusterIP
   selector:
-    app: loader
+    app.kubernetes.io/name: loader
   ports:
     - name: tcp-80
       port: 80
       targetPort: 80
       protocol: TCP
 ---
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -140,7 +119,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
-
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -163,20 +141,3 @@ kind: ServiceAccount
 metadata:
   name: internal-kubectl
   namespace: ragnarok
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: loader-service
-  namespace: ragnarok
-  labels:
-    app: loader
-spec:
-  type: ClusterIP
-  selector:
-    app: loader
-  ports:
-    - name: tcp-80
-      port: 80
-      targetPort: 80
-      protocol: TCP

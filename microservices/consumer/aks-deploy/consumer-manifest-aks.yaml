@@ -46,8 +46,8 @@ spec:
       labels:
         app: consumer
     spec:
-      nodeSelector:
-        agentpool: np003
+#      nodeSelector:
+#        agentpool: np003
       containers:
       - name: consumer
         image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:pulsar-0.0.38

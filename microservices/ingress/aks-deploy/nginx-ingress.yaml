@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loadtest-ingress-service
+  namespace: ragnarok
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "7200"
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /sink-admin
+        pathType: Prefix
+        backend:
+          service:
+            name: sink-service
+            port:
+              number: 80
+      - path: /sink-orders
+        pathType: Prefix
+        backend:
+          service:
+            name: sink-service
+            port:
+              number: 80
+      - path: /loader-admin
+        pathType: Prefix
+        backend:
+          service:
+            name: loader-service
+            port:
+              number: 80
+      - path: /selected
+        pathType: Prefix
+        backend:
+          service:
+            name: loader-service
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 80

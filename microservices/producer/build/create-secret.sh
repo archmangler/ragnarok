@@ -3,10 +3,12 @@
 #
 #Set the secret as follows:
 export DOCKER_PASSWORD=`aws ecr get-login-password --region ap-southeast-1`
+echo "Docker Password => ${DOCKER_PASSWORD}"
 
 kubectl create namespace ragnarok
 
 #remove old secret ...
+printf "deleting docker image pull secret ..."
 kubectl delete secret ragnarok \
     --namespace ragnarok
 

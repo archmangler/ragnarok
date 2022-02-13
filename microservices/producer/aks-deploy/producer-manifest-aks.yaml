@@ -116,16 +116,16 @@ spec:
           value: "metrics"      
         - name: METRICS_PORT_NUMBER
           value: "80"
-        volumeMounts:
-          - name: applogs
-            mountPath: /applogs
+#        volumeMounts:
+#          - name: applogs
+#            mountPath: /applogs
         ports:
           - name: tcp-80
             containerPort: 80
-      volumes:
-        - name: applogs
-          persistentVolumeClaim:
-            claimName: applogs-claim
+#      volumes:
+#        - name: applogs
+#          persistentVolumeClaim:
+#            claimName: applogs-claim
       imagePullSecrets:
         - name: ragnarok
 

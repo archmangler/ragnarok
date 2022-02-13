@@ -7,56 +7,83 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 4
+  replicas: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 75%
   template:
     metadata:
       labels:
         app: consumer
     spec:
+#      nodeSelector:
+#        agentpool: np003
       containers:
       - name: consumer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:0.0.16
-        imagePullPolicy: Always
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-consumer:pulsar-0.0.38
+        imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS
-          value: "20"
+          value: "1"
         - name: NUM_WORKERS
-          value: "20"
-        - name: KAFKA_BROKER1_ADDRESS
-          value: "kafka.kafka.svc.cluster.local:9092"
-        - name: KAFKA_BROKER2_ADDRESS
-          value: "kafka.kafka.svc.cluster.local:9092"
-        - name: KAFKA_BROKER3_ADDRESS
-          value: "kafka.kafka.svc.cluster.local:9092"
-        - name: LOCAL_LOGFILE_PATH
-          value: "/var/log"
-        - name: OUTPUT_DIRECTORY_PATH
-          value: "/data/output-api"
+          value: "1"
+        - name: PULSAR_BROKER_SERVICE_ADDRESS
+          value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+        - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
+          value: "sub001"
         - name: MESSAGE_TOPIC
-          value: "messages"
-        - name: ERROR_TOPIC
-          value: "api-failures"
+          value: "ragnarok/transactions/requests"
+        - name: KAFKA_BROKER_SERVICE_ADDRESS
+          value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER1_ADDRESS
+          value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER2_ADDRESS
+          value: "kafka-1.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER3_ADDRESS
+          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER4_ADDRESS
+          value: "kafka-3.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER5_ADDRESS
+          value: "kafka-4.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER6_ADDRESS
+          value: "kafka-5.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER7_ADDRESS
+          value: "kafka-6.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER8_ADDRESS
+          value: "kafka-7.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER9_ADDRESS
+          value: "kafka-8.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER10_ADDRESS
+          value: "kafka-9.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER11_ADDRESS
+          value: "kafka-10.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER12_ADDRESS
+          value: "kafka-11.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER13_ADDRESS
+          value: "kafka-12.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER14_ADDRESS
+          value: "kafka-13.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: CONSUMER_GROUP
+          value: "cg001"
+        - name: CONSUMER_COMMIT_INTERVAL
+          value: "1"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/applogs"
+        - name: DEADLETTER_TOPIC
+          value: "deadLetter"
         - name: METRICS_TOPIC
           value: "metrics"      
         - name: TARGET_API_URL
-          value: "http://sink-service.ragnarok.svc.cluster.local/orders"
+          value: "http://sink-service.ragnarok.svc.cluster.local/sink-orders"
         - name: PORT_NUMBER
           value: "80"
-        volumeMounts:
-          - name: output
-            mountPath: /data/
         ports:
           - name: tcp-80
             containerPort: 80
-      volumes:
-        - name: output
-          nfs: 
-          # URL for the NFS server
-            server: nfs-service.ragnarok.svc.cluster.local #Change this to the current address of the NFS service , obtained by looking at: kubectl get ep -n <application namespace>
-            path: /
       imagePullSecrets:
         - name: ragnarok
-
 ---
 kind: Service
 apiVersion: v1

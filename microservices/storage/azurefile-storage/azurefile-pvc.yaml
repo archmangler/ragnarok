@@ -1,4 +1,5 @@
 ---
+#For reading source of json input data from file storage
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -12,19 +13,8 @@ spec:
       storage: 10Gi
   storageClassName: azurefile-premium
 ---
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: datastore2-claim
-  namespace: ragnarok
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 256Gi
-  storageClassName: azurefile-csi-premium
----
+#for outputting processed data to a file storage
+#(from the target application)
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -38,19 +28,7 @@ spec:
       storage: 10Gi
   storageClassName: azurefile-premium
 ---
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: applogs-claim
-  namespace: ragnarok
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 10Gi
-  storageClassName: azurefile-premium
----
+#For backup of the messaging queue (dump from Kafka or Pulsar)
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:

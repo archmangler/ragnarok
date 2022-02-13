@@ -30,9 +30,7 @@ spec:
             containerPort: 80
       imagePullSecrets:
         - name: ragnarok
-
 ---
-
 apiVersion: v1
 kind: Service
 metadata:

@@ -310,8 +310,10 @@ master:
   ## @param master.nodeSelector Node labels for Redis&trade; master pods assignment
   ## ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector:
-    agentpool: np002
+  #nodeSelector:
+  #  agentpool: np002
+  #nodeSelector:
+  #  eks.amazonaws.com/nodegroup: np002
   ## @param master.tolerations Tolerations for Redis&trade; master pods assignment
   ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   ##
@@ -625,8 +627,8 @@ replica:
   ## @param replica.nodeSelector Node labels for Redis&trade; replicas pods assignment
   ## ref: https://kubernetes.io/docs/user-guide/node-selection/
   ##
-  nodeSelector:
-    agentpool: np002
+  #nodeSelector:
+  #  eks.amazonaws.com/nodegroup: np002
   ## @param replica.tolerations Tolerations for Redis&trade; replicas pods assignment
   ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
   ##
