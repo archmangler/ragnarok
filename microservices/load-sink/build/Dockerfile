@@ -10,6 +10,7 @@ RUN go mod download
 COPY *.go ./
 
 RUN go build -o /anvil
+RUN mkdir -p /processed
 
 RUN ln -sf /dev/stdout /var/log/load-sink.log
 

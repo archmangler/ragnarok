@@ -16,8 +16,10 @@ spec:
     spec:
       containers:
       - name: load-sink
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-sink:0.0.16
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-sink:0.0.17
         imagePullPolicy: IfNotPresent 
+        securityContext:
+          privileged: true
         env:
         - name: PORT_NUMBER
           value: "80"
@@ -28,6 +30,13 @@ spec:
         ports:
           - name: tcp-80
             containerPort: 80
+        volumeMounts:
+          - name: processed-data
+            mountPath: /processed
+      volumes:
+        - name: processed-data
+          persistentVolumeClaim:
+            claimName: processed-claim
       imagePullSecrets:
         - name: ragnarok
 ---
@@ -47,4 +56,16 @@ spec:
       port: 80
       targetPort: 80
       protocol: TCP
-
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: processed-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2

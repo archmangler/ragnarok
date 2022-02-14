@@ -45,3 +45,25 @@ resource "aws_security_group" "all_worker_mgmt" {
     ]
   }
 }
+
+/*
+resource "aws_security_group" "efs" {
+   name = "${local.cluster_name}-efs-sg"
+   description= "Allow inbound efs traffic from ec2"
+   vpc_id = module.vpc.vpc_id
+
+   ingress {
+     security_groups = [aws_security_group.all_worker_mgmt.id]
+     from_port = 2049
+     to_port = 2049 
+     protocol = "tcp"
+   }     
+        
+   egress {
+     security_groups = [aws_security_group.all_worker_mgmt.id]
+     from_port = 0
+     to_port = 0
+     protocol = "-1"
+   }
+ }
+*/
