@@ -7,6 +7,8 @@ function check_kubernetes_api_endpoint() {
 }
 
 function check_kubernetes_ingress() {
+  if [[ $target_cloud == *"azure"* ]]
+  then
     EIP=$(kubectl get service ingress-nginx-controller -n ingress-basic -o json| jq -r '.spec.loadBalancerIP')
     echo $EIP
     for i in sink-admin loader-admin sink-orders
@@ -14,6 +16,18 @@ function check_kubernetes_ingress() {
       output=$(curl -s "$EIP/$i")
       printf "got service endpoint: $output\n"
     done
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    for i in `seq 1 5`
+    do
+      OUT=$(kubectl get ingress -n ragnarok -o json| jq -r '.items|.[]|.status|.loadBalancer.ingress|.[]|.hostname')
+      printf "Got ingress external address: $OUT\n"
+      sleep 2
+      OUT=$(curl -s $OUT/loader-admin)
+      printf "connecting to external management endpoint: $OUT\n"
+    done
+  fi 
 }
 
 function text_divider () {

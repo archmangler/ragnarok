@@ -9,6 +9,28 @@ function create_namespaces () {
   done
 }
 
+function deploy_kubernetes_cluster(){
+  printf "deploying  kubernetes ..."
+  if [[ $target_cloud == *"azure"* ]]
+  then
+    printf "Deploying an AKS cluster ...\n"
+    deploy_aks_cluster
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    printf "Deploying an EKS cluster ...\n"
+    deploy_eks_cluster
+  fi
+}
+
+function deploy_eks_cluster {
+  printf "deploying kubernetes cluster on AWS Cloud\n"
+  mycwd=`pwd`
+  cd kubernetes/eks-deploy/
+  ./deploy.sh
+  cd $mycwd
+}
+
 function deploy_aks_cluster {
   printf "deploying kubernetes cluster on Azure Cloud\n"
   mycwd=`pwd`
@@ -18,9 +40,32 @@ function deploy_aks_cluster {
 }
 
 function deploy_ingress_controller(){
-  printf "deploy ingress controller ..."
+  printf "deploy ingress controllers ..."
   mycwd=`pwd`
-  cd networking
+
+  if [[ $target_cloud == *"azure"* ]]
+  then
+    deploy_aks_ingress_controller
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    deploy_eks_ingress_controller
+  fi 
+  cd $mycwd
+}
+
+function deploy_aks_ingress_controller(){
+  printf "deploy AKS ingress controller ..."
+  mycwd=`pwd`
+  cd networking/aks-deploy
+  ./deploy.sh
+  cd $mycwd
+}
+
+function deploy_eks_ingress_controller(){
+  printf "deploy EKS ingress controller ..."
+  mycwd=`pwd`
+  cd networking/eks-deploy
   ./deploy.sh
   cd $mycwd
 }
@@ -55,51 +100,103 @@ function deploy_kafka_services () {
 
 function deploy_redis_services () {
   mycwd=`pwd`
-  cd microservices/storage/redis-storage/
-  ./deploy.sh
+  if [[ $target_cloud == *"azure"* ]]
+  then
+    cd microservices/storage/redis-storage/aks-deploy
+    ./deploy.sh
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    cd microservices/storage/redis-storage/eks-deploy
+    ./deploy.sh
+  fi
   cd $mycwd
 }
 
 function deploy_ingress_service () {
   mycwd=`pwd`
-  cd microservices/ingress/aks-nginx-ingress
-  ./deploy.sh
+  if [[ $target_cloud == *"azure"* ]]
+  then
+    cd microservices/ingress/aks-deploy
+    ./deploy.sh
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    cd microservices/ingress/eks-deploy
+    ./deploy.sh
+  fi
   cd $mycwd
 }
 
 function deploy_sink_service () {
   mycwd=`pwd`
-  cd microservices/load-sink
-  ./deploy.sh
+  if [[ $target_cloud == *"azure"* ]]
+  then
+    cd microservices/load-sink/aks-deploy
+    ./deploy.sh
+  fi
+
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    cd microservices/load-sink/eks-deploy
+    ./deploy.sh
+  fi
   cd $mycwd
 }
 
 function deploy_producer_service_aks () {
   mycwd=`pwd`
+  if [[ $target_cloud == *"azure"* ]]
+  then
   cd microservices/producer/aks-deploy/
   ./deploy.sh
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+  cd microservices/producer/eks-deploy/
+  ./deploy.sh
+  fi
+
   cd $mycwd
 }
 
 function deploy_consumer_service_aks () {
   mycwd=`pwd`
+  if [[ $target_cloud == *"azure"* ]]
+  then
   cd microservices/consumer/aks-deploy/
   ./deploy.sh
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+  cd microservices/consumer/eks-deploy/
+  ./deploy.sh
+  fi
   cd $mycwd
 }
 
 function deploy_loader_service_aks () {
   mycwd=`pwd`
-  cd microservices/loader/aks-deploy/
-  ./deploy.sh
-  cd ../rbac-config
-  ./deploy.sh
+  if [[ $target_cloud == *"azure"* ]]
+  then
+    cd microservices/loader/aks-deploy/
+    ./deploy.sh
+    cd rbac-config
+    ./deploy.sh
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+    cd microservices/loader/eks-deploy/
+    ./deploy.sh
+    cd rbac-config
+    ./deploy.sh
+  fi
   cd $mycwd
 }
 
 function deploy_local_storage_aks () {
   mycwd=`pwd`
-  cd microservices/storage/azurefile-storage/ && ./deploy.sh
+  cd microservices/storage/afs-storage/ && ./deploy.sh
   cd $mycwd
 }
 
@@ -110,17 +207,18 @@ function update_registry_access () {
 }
 
 #Deployment to Azure Cloud
-deploy_aks_cluster
+deploy_kubernetes_cluster
 create_namespaces
 deploy_ingress_controller
 deploy_prometheus_services
 deploy_grafana_services
 deploy_redis_services
+#make this selectable at some point!
 #deploy_kafka_services
 deploy_pulsar_services
-deploy_sink_service
 deploy_local_storage_aks
 update_registry_access
+deploy_sink_service
 deploy_producer_service_aks
 deploy_consumer_service_aks
 deploy_loader_service_aks

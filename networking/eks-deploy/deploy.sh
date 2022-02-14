@@ -3,58 +3,113 @@
 #See: 
 # https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html#lbc-install-controller
 # https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
-#  https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
+# https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
 
 #WARNING: source these from env ...
-DEPLOY_REGION="ap-southeast-1"
-CLUSTER_NAME="ragnarok-eks-mjollner-poc"
-AWS_ACCOUNT_NUMBER="524513049339"
+#Examples:
+#export AWS_DEPLOY_REGION="ap-southeast-1"
+#export AWS_CLUSTER_NAME="ragnarok-eks-mjollner-poc"
+#export AWS_ACCOUNT_NUMBER="524513049339"
 
 #curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.1/docs/install/iam_policy.json
 
-eksctl utils associate-iam-oidc-provider \
-  --region $DEPLOY_REGION \
-  --cluster ${CLUSTER_NAME} \
-   --approve
+function associate_iam_oidc_provider () {
+ OUT=$(eksctl utils associate-iam-oidc-provider \
+    --region $AWS_DEPLOY_REGION \
+    --cluster ${AWS_CLUSTER_NAME} \
+    --approve)
+  printf "associate_iam_oidc_provider: $OUT\n"
+}
 
-aws iam create-policy \
+function create_iam_policy () {
+  aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
     --policy-document file://iam_policy.json
+}
 
-eksctl create iamserviceaccount \
-  --cluster=${CLUSTER_NAME}  \
-  --namespace=kube-system \
-  --name=aws-load-balancer-controller \
-  --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT_NUMBER}:policy/AWSLoadBalancerControllerIAMPolicy \
-  --override-existing-serviceaccounts \
-  --approve \
-  --region ${DEPLOY_REGION} 
+function delete_iam_service_account () {
+  OUT=$(eksctl delete iamserviceaccount --namespace=kube-system --cluster=${AKS_CLUSTER_NAME} --name=aws-load-balancer-controller --region ${AWS_DEPLOY_REGION})
+  printf "Deleting old serviceaccount: $OUT\n"
+  for i in `seq 1 3`
+  do
+    OUT=$(kubectl get serviceaccounts -n kube-system| egrep "aws-load-balancer-controller")
+    printf "checking: $OUT\n"
+    sleep 2
+  done
+}
 
-helm repo add eks https://aws.github.io/eks-charts
+function create_iam_service_account () {
 
-helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
-  -n kube-system \
-  --set clusterName=${CLUSTER_NAME} \
-  --set serviceAccount.create=false \
-  --set serviceAccount.name=aws-load-balancer-controller
+  echo "create_iam_service_account: eksctl create iamserviceaccount \
+    --cluster=${AWS_CLUSTER_NAME}  \
+    --namespace=kube-system \
+    --name=aws-load-balancer-controller \
+    --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT_NUMBER}:policy/AWSLoadBalancerControllerIAMPolicy \
+    --override-existing-serviceaccounts \
+    --approve \
+    --region ${AWS_DEPLOY_REGION}"
 
+  OUT=$(eksctl create iamserviceaccount \
+    --cluster=${AWS_CLUSTER_NAME}  \
+    --namespace=kube-system \
+    --name=aws-load-balancer-controller \
+    --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT_NUMBER}:policy/AWSLoadBalancerControllerIAMPolicy \
+    --override-existing-serviceaccounts \
+    --approve \
+    --region ${AWS_DEPLOY_REGION})
+
+  printf "OUTPUT:$OUT\n"
+}
+
+function install_alb () {
+  helm repo add eks https://aws.github.io/eks-charts
+  echo "deploying ALB ngress controller with helm:  helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+    -n kube-system \
+    --set clusterName=${AWS_CLUSTER_NAME} \
+    --set serviceAccount.create=false \
+    --set serviceAccount.name=aws-load-balancer-controller"
+
+  OUT=$(helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+    -n kube-system \
+    --set clusterName=${AWS_CLUSTER_NAME} \
+    --set serviceAccount.create=false \
+    --set serviceAccount.name=aws-load-balancer-controller)
+}
+
+function upgrade_alb () {
 #upgrade sequence
 #See: 
 # https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html#lbc-install-controller
 # https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
-#  https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
+# https://docs.aws.amazon.com/eks/latest/userguide/alb-ingress.html
 
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
-helm upgrade aws-load-balancer-controller eks/aws-load-balancer-controller \
-  -n kube-system \
-  --set clusterName=ragnarok-eks-mjollner-poc \
-  --set serviceAccount.create=false \
-  --set serviceAccount.name=aws-load-balancer-controller
+  printf "running helm chart upgrade ...\n"
 
-for i in `seq 1 10`
-do
-  kubectl get deployment -n kube-system alb-ingress-controller
-  printf "waiting ... $OUT"
-  sleep 5
-done
+  kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
 
+  OUT=$(helm upgrade aws-load-balancer-controller eks/aws-load-balancer-controller \
+    -n kube-system \
+    --set clusterName=${AWS_CLUSTER_NAME} \
+    --set serviceAccount.create=false \
+    --set serviceAccount.name=aws-load-balancer-controller)
+}
+
+function check_alb_deployment () {
+  printf "checking ingress controller deployment ...\n"
+  for i in `seq 1 10`
+  do
+    OUT=$(kubectl get deployment aws-load-balancer-controller -n kube-system)
+    printf "waiting: ... $OUT\n"
+    OUT=$(kubectl get events -n kube-system|egrep "aws-load-balancer-controller")
+    printf "Related Events: $OUT \n"
+    sleep 5
+  done
+}
+
+#
+associate_iam_oidc_provider
+create_iam_policy
+delete_iam_service_account
+create_iam_service_account
+install_alb
+check_alb_deployment
