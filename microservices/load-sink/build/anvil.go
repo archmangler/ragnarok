@@ -20,7 +20,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-/*TESTING:
+/*Troubleshooting note: Raw testing by hand is done as follows:
 
 curl -X POST  http://localhost:8080/orders \
   -H 'Content-Type: application/json' \
@@ -31,9 +31,11 @@ curl -s http://localhost:8080/orders| jq -r
 */
 
 var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/load-sink.log" // /var/log
-var port_specifier string = ":" + os.Getenv("PORT_NUMBER")              // set the metrics endpoint port in the manifest
-var orderCount int = 0                                                  //total request count for current runtime
-var errorCount int = 0                                                  //total error count for current runtime
+var output_dir string = os.Getenv("OUTPUT_DIR_PATH") + "/"              // e.g "/processed"
+
+var port_specifier string = ":" + os.Getenv("PORT_NUMBER") // set the metrics endpoint port in the manifest
+var orderCount int = 0                                     //total request count for current runtime
+var errorCount int = 0                                     //total error count for current runtime
 
 //Instrumentation
 var (
@@ -46,7 +48,31 @@ var (
 		Name: "loadsink_failed_requests_total",
 		Help: "The total number of failed requests",
 	})
+
+	writesSuccessful = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "loadsink_successul_filewrites_total",
+		Help: "The total number files successfully written",
+	})
+
+	writesFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "loadsink_failed_filewrites_total",
+		Help: "The total number of file writes failed",
+	})
 )
+
+func recordWriteSuccessMetrics() {
+	go func() {
+		writesSuccessful.Inc()
+		time.Sleep(2 * time.Second)
+	}()
+}
+
+func recordWriteFailureMetrics() {
+	go func() {
+		writesFailed.Inc()
+		time.Sleep(2 * time.Second)
+	}()
+}
 
 func recordSuccessMetrics() {
 	go func() {
@@ -66,6 +92,7 @@ func recordFailedMetrics() {
 /*
 
 //Payload message format example
+//NOTE:  This needs to be customised to the target application's needs
 
 [
   {
@@ -89,6 +116,7 @@ type Payload struct {
 
 */
 
+//Customised to the use case
 type Order struct {
 	Name      string `json:"name"`
 	ID        string `json:"id"`
@@ -229,6 +257,28 @@ func (h *orderHandlers) getOrder(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonBytes)
 }
 
+func store_load_output_file(input_file string, msgPayload string) {
+
+	logger(logFile, "prepared message payload: "+msgPayload)
+
+	f, err := os.Create(input_file)
+
+	if err != nil {
+
+		logger(logFile, "error generating request message file: "+err.Error())
+
+		//record as a failure metric
+		recordWriteFailureMetrics()
+
+	} else {
+		//record as a success metric
+		recordWriteSuccessMetrics()
+	}
+	_, err = f.WriteString(msgPayload)
+
+	f.Close()
+}
+
 func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Handling HTTP API (load) request:", orderCount+1)
@@ -262,35 +312,44 @@ func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/*
-		    //Unmarshalling to the message structure
-			var order Order
+	/* Example for unmarshalling:
 
-			err = json.Unmarshal(bodyBytes, &order)
+	    //Unmarshalling to the message structure
+		var order Order
 
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte(err.Error()))
+		err = json.Unmarshal(bodyBytes, &order)
 
-				errorCount++
-				recordFailedMetrics()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
 
-				fmt.Println("ERROR in request: ", orderCount+1, " error: ", err)
+			errorCount++
+			recordFailedMetrics()
 
-				return
-			}
+			fmt.Println("ERROR in request: ", orderCount+1, " error: ", err)
 
-			order.ID = fmt.Sprintf("%d", time.Now().UnixNano())
+			return
+		}
 
-			h.Lock()
-			h.store[order.ID] = order
-			defer h.Unlock()
+		order.ID = fmt.Sprintf("%d", time.Now().UnixNano())
+
+		h.Lock()
+		h.store[order.ID] = order
+		defer h.Unlock()
 	*/
 
 	orderCount++ //increment total incoming api requests
+
+	//create an output file name to store this message
+	input_file := output_dir + "/" + strconv.Itoa(orderCount)
+
 	recordSuccessMetrics()
 
-	fmt.Println("processed request: ", orderCount, " data: ", string(bodyBytes))
+	msgPayload := string(bodyBytes)
+
+	store_load_output_file(input_file, msgPayload)
+
+	fmt.Println("processed request: ", orderCount, " data: ", msgPayload)
 
 }
 
@@ -349,7 +408,7 @@ func main() {
 	//GET URL for specific order information
 	http.HandleFunc("/sink-order", orderHandlers.getOrder)
 
-        //admin portal
+	//admin portal
 	http.HandleFunc("/sink-admin", admin.handler)
 
 	//metrics endpoint

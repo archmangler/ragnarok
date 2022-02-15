@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: load-sink
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-sink:0.0.17
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-sink:0.0.19
         imagePullPolicy: IfNotPresent 
         securityContext:
           privileged: true
@@ -27,6 +27,8 @@ spec:
           value: "Crypt0N0m1c0n##"
         - name: LOCAL_LOGFILE_PATH
           value: "/var/log"
+        - name: OUTPUT_DIR_PATH
+          value: "/processed"
         ports:
           - name: tcp-80
             containerPort: 80
