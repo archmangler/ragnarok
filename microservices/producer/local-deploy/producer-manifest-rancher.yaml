@@ -16,20 +16,6 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: processed-claim
-  namespace: ragnarok
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: local-path
-  resources:
-    requests:
-      storage: 512Mi
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
   name: applogs-claim
   namespace: ragnarok
 spec:
@@ -89,8 +75,6 @@ spec:
         volumeMounts:
           - name: datastore
             mountPath: /datastore
-          - name: processed
-            mountPath: /processed
           - name: applogs
             mountPath: /applogs
         ports:
@@ -100,9 +84,6 @@ spec:
         - name: datastore
           persistentVolumeClaim:
             claimName: datastore-claim
-        - name: processed
-          persistentVolumeClaim:
-            claimName: processed-claim
         - name: applogs
           persistentVolumeClaim:
             claimName: applogs-claim

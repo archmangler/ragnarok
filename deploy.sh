@@ -144,7 +144,7 @@ function deploy_sink_service () {
   cd $mycwd
 }
 
-function deploy_producer_service_aks () {
+function deploy_producer_service () {
   mycwd=`pwd`
   if [[ $target_cloud == *"azure"* ]]
   then
@@ -160,7 +160,7 @@ function deploy_producer_service_aks () {
   cd $mycwd
 }
 
-function deploy_consumer_service_aks () {
+function deploy_consumer_service () {
   mycwd=`pwd`
   if [[ $target_cloud == *"azure"* ]]
   then
@@ -175,7 +175,7 @@ function deploy_consumer_service_aks () {
   cd $mycwd
 }
 
-function deploy_loader_service_aks () {
+function deploy_loader_service () {
   mycwd=`pwd`
   if [[ $target_cloud == *"azure"* ]]
   then
@@ -194,9 +194,16 @@ function deploy_loader_service_aks () {
   cd $mycwd
 }
 
-function deploy_local_storage_aks () {
+function deploy_local_storage () {
   mycwd=`pwd`
-  cd microservices/storage/afs-storage/ && ./deploy.sh
+  if [[ $target_cloud == *"azure"* ]]
+  then
+     cd microservices/storage/afs-storage/ && ./deploy.sh
+  fi
+  if [[ $target_cloud == *"aws"* ]]
+  then
+     printf "no storage for EKS ...\n"
+  fi
   cd $mycwd
 }
 
@@ -216,10 +223,10 @@ deploy_redis_services
 #make this selectable at some point!
 #deploy_kafka_services
 deploy_pulsar_services
-deploy_local_storage_aks
+deploy_local_storage
 update_registry_access
 deploy_sink_service
-deploy_producer_service_aks
-deploy_consumer_service_aks
-deploy_loader_service_aks
+deploy_producer_service
+deploy_consumer_service
+deploy_loader_service
 deploy_ingress_service

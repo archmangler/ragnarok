@@ -74,8 +74,8 @@ spec:
         volumeMounts:
           - name: datastore
             mountPath: /datastore
-          - name: processed
-            mountPath: /processed
+#          - name: processed
+#            mountPath: /processed
           - name: loader-logs
             mountPath: /applogs
         ports:
@@ -85,9 +85,9 @@ spec:
         - name: datastore
           persistentVolumeClaim:
             claimName: datastore-claim
-        - name: processed
-          persistentVolumeClaim:
-            claimName: processed-claim
+#        - name: processed
+#          persistentVolumeClaim:
+#            claimName: processed-claim
         - name: loader-logs
           persistentVolumeClaim:
             claimName: loadlogs-claim

@@ -28,7 +28,7 @@ function create_iam_policy () {
 }
 
 function delete_iam_service_account () {
-  OUT=$(eksctl delete iamserviceaccount --namespace=kube-system --cluster=${AKS_CLUSTER_NAME} --name=aws-load-balancer-controller --region ${AWS_DEPLOY_REGION})
+  OUT=$(eksctl delete iamserviceaccount --namespace=kube-system --cluster=${AWS_CLUSTER_NAME} --name=aws-load-balancer-controller --region ${AWS_DEPLOY_REGION})
   printf "Deleting old serviceaccount: $OUT\n"
   for i in `seq 1 3`
   do
