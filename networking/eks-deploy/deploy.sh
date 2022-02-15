@@ -61,6 +61,11 @@ function create_iam_service_account () {
   printf "OUTPUT:$OUT\n"
 }
 
+function uninstall_alb () {
+  #first uninstall
+  helm uninstall aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system
+}
+
 function install_alb () {
   helm repo add eks https://aws.github.io/eks-charts
   echo "deploying ALB ngress controller with helm:  helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
@@ -111,5 +116,6 @@ associate_iam_oidc_provider
 create_iam_policy
 delete_iam_service_account
 create_iam_service_account
+uninstall_alb
 install_alb
 check_alb_deployment
