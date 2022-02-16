@@ -1,10 +1,10 @@
 # Table of Contents
 
-[Description](#LoadGenerationSolutionforTradeMatchingSystems)
-[Operation](#Operation)
-[How it Works](#HowitWorks)
-[Installation](#Installation)
-[Compute Resources](#Compute Resources) 
+* [Description](#LoadGenerationSolutionforTradeMatchingSystems)
+* [Operation](#Operation)
+* [How it Works](#HowitWorks)
+* [Installation](#Installation)
+* [Compute Resources](#ComputeResources) 
 
 ## Load Generation Solution for Trade Matching Systems
 
