@@ -76,10 +76,7 @@ How to install via cli:
 
 ![alt text](images/basic-performance-benchmark-26012022.png?raw=true "Cluster Performance on Cloud")
 
-
-
-
-## Troubleshooting procedure
+## Troubleshooting Procedure
 
 - View the requests received by the dummy target application (The "black box")
 
