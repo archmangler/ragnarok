@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -257,13 +258,27 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 		return msgID, err
 	}
 
-	//We should marshall this json into a well defined struct but lets
+	//We should marshall this json using a well defined struct but lets
 	//take the shortcut for now ...
 	msgPayload = `[{ "Name":"` + msgName + `","ID":"` + input_id + `","Time":"` + msgTimestamp + `","Data":"` + msgData + `","Eventname":"` + msgEventname + `"}]`
 
 	//get all the required data for the input id and return as json string
 	return msgPayload, err
 
+}
+
+func check_payload_data(payload string) (e error) {
+
+	//check for empty message payload data (and other issues in input data) before we
+	//push into the messaging queue
+
+	if len(payload) == 0 {
+		return errors.New("skip empty message to message queue: " + payload)
+	} else {
+		fmt.Println("check message content nonzero: ", len(payload))
+	}
+
+	return nil
 }
 
 func process_input_data_redis_concurrent(workerId int, jobId int) {
@@ -340,8 +355,18 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 		}
 
-		//post the load message to pulsar
-		produce(payload, producer, ctx, primaryTopic)
+		//check for data issues before input to pulsar
+		err = check_payload_data(payload)
+
+		if err != nil {
+
+			fmt.Println("error: got empty message, not posting to message queue: ", payload)
+
+		} else {
+
+			//post the load message to pulsar
+			produce(payload, producer, ctx, primaryTopic)
+		}
 
 		//keep a record of files that should be moved to /processed after the workers stop
 		mutex.Lock()

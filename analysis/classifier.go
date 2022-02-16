@@ -42,10 +42,10 @@ func check_empty_files(dir_path string, files []fs.FileInfo) (fc int) {
 
 }
 
-func check_duplicate_content(dir_path string, files []fs.FileInfo) {
+func check_duplicate_content(dir_path string, files []fs.FileInfo) (dupCount int) {
 
 	//Modify this to map the filename to the duplicate results
-
+	dupCount = 0
 	md5map := make(map[string]string)
 	results := make(map[string]int)
 
@@ -68,17 +68,19 @@ func check_duplicate_content(dir_path string, files []fs.FileInfo) {
 		}
 		results[k] = cnt
 	}
-	printDuplicates(results)
+	dupCount = printDuplicates(results)
+	return dupCount
 }
 
-func printDuplicates(theMap map[string]int) {
+func printDuplicates(theMap map[string]int) (dCount int) {
 
 	for k, v := range theMap {
 		if v > 1 {
 			fmt.Printf("DUP: %s => %s \n", k, strconv.Itoa(v))
+			dCount++
 		}
 	}
-
+	return dCount
 }
 
 func getFileMD5(fPath string) (sum string) {
@@ -141,9 +143,9 @@ func get_file_sizes(dir_path string) (s map[int64]int64) {
 
 func main() {
 
-	source_dir := "15022022001"
+	source_dir := os.Args[1]
 
-	fmt.Println("**************** analysing contents ********************")
+	fmt.Println("**************** BEGIN analysing contents ********************")
 	fmt.Println("total: ", count_files(source_dir))
 
 	files, _ := ioutil.ReadDir(source_dir)
@@ -159,9 +161,12 @@ func main() {
 	fmt.Printf("empty files: %s\n", strconv.Itoa(fCount))
 
 	//check for duplicate files
-	check_duplicate_content(source_dir, files)
+	dupCount := check_duplicate_content(source_dir, files)
+	fmt.Println("duplicated files: ", dupCount)
 
-	//check for content with empty json fields
+	//TODO: check for content with empty json fields
 	//check_missing_fields(files)
+
+	fmt.Println("**************** DONE analysing contents ********************")
 
 }

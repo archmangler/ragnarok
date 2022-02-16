@@ -142,31 +142,10 @@ func newAdminPortal() *adminPortal {
 }
 
 func logger(logFile string, logMessage string) {
+
 	now := time.Now()
 	msgTs := now.UnixNano()
-
-	//when we're not logging to file  ...
 	fmt.Println("[log]", strconv.FormatInt(msgTs, 10), logMessage)
-
-	//When we're logging to file ...logFile
-
-	mutex.Lock()
-
-	f, e := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-
-	if e != nil {
-		log.Fatalf("error opening log file: %v", e)
-	}
-
-	defer f.Close()
-
-	log.SetOutput(f)
-
-	//include the hostname on each log entry
-	logMessage = "[host=" + hostname + "]" + logMessage
-	log.Println(logMessage)
-
-	mutex.Unlock()
 }
 
 func clear_directory(Dir string) (int, error) {

@@ -169,6 +169,17 @@ func parseJSONmessage(theString string) map[string]string {
 	return dMap
 }
 
+func empty_msg_check(message string) (err error) {
+
+	if len(message) == 0 {
+
+		return errors.New("empty message from message queue: " + message)
+
+	}
+
+	return nil
+}
+
 //simple illustrative data check for message (this is optional, really)
 func data_check(message string) (err error) {
 
@@ -178,7 +189,7 @@ func data_check(message string) (err error) {
 		if len(dMap[k]) > 0 {
 			fmt.Println("checking payload message field (ok): ", k, " -> ", dMap[k])
 		} else {
-			return errors.New("empty field! ... " + k)
+			return errors.New("empty field in message! ... " + k)
 		}
 	}
 
@@ -242,63 +253,68 @@ func consume_payload_data(client pulsar.Client, topic string, id int) {
 			msg.ID(), string(msg.Payload()))
 
 		//message acknowledgment
+		//Do we need this ?
 		consumer.Ack(msg)
 
 		message := string(msg.Payload())
 
-		err = data_check(message)
+		err = empty_msg_check(message)
 
 		if err != nil {
-			//incremement error metric
-			errorCount += 1
-			logMessage := "Error Count: " + strconv.Itoa(errorCount)
+
+			logMessage := "ERROR: empty message (skipping): " + message
 			logger(logFile, logMessage)
-		}
-		//But carry  on regardless anyway ...
 
-		//TODO: POST to the URL of the target API service ("The System Under Load Test") - target_api_url
-		var jsonStr = []byte(message)
-		req, err := http.NewRequest("POST", target_api_url, bytes.NewBuffer(jsonStr))
-		req.Header.Set("X-Custom-Header", "loadtest")
-		req.Header.Set("Content-Type", "application/json")
+		} else {
 
-		client := &http.Client{}
-
-		//Post to the target URL
-		resp, err := client.Do(req)
-
-		if err != nil {
-			b, _ := httputil.DumpResponse(resp, true)
-			logMessage := "Failed to post payload to target API" + string(b)
-			logger(logFile, logMessage)
+			err = data_check(message)
 
 			if err != nil {
 
-				//publish metric to the metrics topic
+				//incremement error metric
 				errorCount += 1
-
-				//produce(message, ctx, topic2)
-
-				logMessage := "could not write message to API" + err.Error()
+				logMessage := "Error Count: " + strconv.Itoa(errorCount)
 				logger(logFile, logMessage)
 
 			} else {
 
-				//If all went well ...
-				logMessage = "wrote message to API: " + message
-				logger(logFile, logMessage)
+				var jsonStr = []byte(message)
+				req, err := http.NewRequest("POST", target_api_url, bytes.NewBuffer(jsonStr))
+				req.Header.Set("X-Custom-Header", "loadtest")
+				req.Header.Set("Content-Type", "application/json")
 
+				client := &http.Client{}
+
+				//Post to the target URL
+				resp, err := client.Do(req)
+
+				if err != nil {
+					b, _ := httputil.DumpResponse(resp, true)
+					logMessage := "Failed to post payload to target API" + string(b)
+					logger(logFile, logMessage)
+
+					if err != nil {
+
+						//publish metric to the metrics topic
+						errorCount += 1
+
+						//produce(message, ctx, topic2)
+
+						logMessage := "could not write message to API" + err.Error()
+						logger(logFile, logMessage)
+
+					} else {
+
+						//If all went well ...
+						logMessage = "wrote message to API: " + message
+						logger(logFile, logMessage)
+
+					}
+
+				}
 			}
-
 		}
-
 	}
-
-	/*
-		if err := consumer.Unsubscribe(); err != nil {
-			log.Fatal(err)
-		}
-	*/
 
 }
 

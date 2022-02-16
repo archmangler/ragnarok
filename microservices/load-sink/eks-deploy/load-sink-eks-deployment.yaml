@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: load-sink
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-sink:0.0.19
+        image: archbungle/load-sink:0.0.20
         imagePullPolicy: IfNotPresent 
         securityContext:
           privileged: true

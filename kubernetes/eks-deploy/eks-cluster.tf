@@ -17,8 +17,8 @@ module "eks" {
       instance_type                 = "t2.small"
       additional_userdata           = "echo basic management functions"
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
-      asg_desired_capacity          = 1
-      asg_max_size                  = 9
+      asg_desired_capacity          = 6
+      asg_max_size                  = 15
       labels = {
        nodegroup = "np001"
       }
@@ -28,32 +28,32 @@ module "eks" {
       instance_type                 = "t2.small"
       additional_userdata           = "echo basic support functions"
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 1
-      asg_max_size                  = 9
+      asg_desired_capacity          = 6
+      asg_max_size                  = 15
     },
     {
       name                          = "np003"
       instance_type                 = "t2.small"
       additional_userdata           = "echo messaging bus pool"
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 4
-      asg_max_size                  = 9
+      asg_desired_capacity          = 6
+      asg_max_size                  = 15
     },
     {
       name                          = "np004"
       instance_type                 = "t2.small"
       additional_userdata           = "echo producer pool"
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 4
-      asg_max_size                  = 9
+      asg_desired_capacity          = 6
+      asg_max_size                  = 15
     },
     {
       name                          = "np005"
       instance_type                 = "t2.small"
       additional_userdata           = "echo consumer pool"
       additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 4
-      asg_max_size                  = 9
+      asg_desired_capacity          = 6
+      asg_max_size                  = 15
     },
   ]
 }

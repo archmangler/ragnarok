@@ -279,19 +279,24 @@ func store_load_output_file(input_file string, msgPayload string) {
 	f.Close()
 }
 
+func check_empty_content(payload []byte) (empty bool) {
+	empty = true
+	if len(payload) > 0 {
+		empty = false
+	}
+	return empty
+}
+
 func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println("Handling HTTP API (load) request:", orderCount+1)
 
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 
-	//for debug
-	fmt.Println("[DEBUG] got request payload bytes -> ", bodyBytes, " <- ")
-	fmt.Println("[DEBUG] convertrequest byte  payload to string -> ", string(bodyBytes), " <- ")
-
 	defer r.Body.Close()
 
 	if err != nil {
+
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		errorCount++
@@ -299,6 +304,13 @@ func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("ERROR in request: ", orderCount+1, " error reading body: ", err)
 
 		return
+	}
+
+	//for debug
+	empty := check_empty_content(bodyBytes)
+
+	if empty {
+		fmt.Println("[DEBUG] got empty request -> ", bodyBytes, " <- ")
 	}
 
 	ct := r.Header.Get("content-type")
@@ -312,7 +324,7 @@ func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/* Example for unmarshalling:
+	/* Example for JSON unmarshalling using a defined data struct:
 
 	    //Unmarshalling to the message structure
 		var order Order
@@ -357,7 +369,6 @@ func newOrderHandlers() *orderHandlers {
 	return &orderHandlers{
 		store: map[string]Order{},
 	}
-
 }
 
 type adminPortal struct {

@@ -23,7 +23,7 @@ spec:
         agentpool: np005
       containers:
       - name: producer
-        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/load-tester:pulsar-0.0.45
+        image: archbungle/load-tester:pulsar-0.0.46
         imagePullPolicy: IfNotPresent
         env:
         - name: NUM_JOBS

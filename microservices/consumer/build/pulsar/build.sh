@@ -7,7 +7,11 @@
 #./build.sh -n load-consumer -t 0.0.x -p true -d true 
 #   build locally, no push to reg
 
-registry_name="605125156525.dkr.ecr.ap-southeast-1.amazonaws.com"
+#registry_name="605125156525.dkr.ecr.ap-southeast-1.amazonaws.com"
+#repo_name="load-consumer"
+#base_cmd="docker build --tag"
+
+registry_name="archbungle"
 repo_name="load-consumer"
 base_cmd="docker build --tag"
 
