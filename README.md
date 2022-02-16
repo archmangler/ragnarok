@@ -66,7 +66,7 @@ How to install via cli:
 * Step #4: run the health check script: `./health.sh`
 * Step #5: review the output of health.sh and troubleshoot any issues.
 
-## Compute Resources
+## Compute_Resources
 
 * As a reference for the kubernetes cluster sizing, the following AKS deployment on Azure provides a rough idea of the minimum resources required for cloud deployment
 
