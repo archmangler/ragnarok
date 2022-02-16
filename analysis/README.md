@@ -4,8 +4,8 @@
 
 # Analysing processed data
 
-* the containerised target application can be used to capture data processed through the load generation engine for error analysis
-* load testing data processed into the sample target application can be copied out of the application container and processed to understand errors as follows:
+* The containerised target application can be used to capture data processed through the load generation engine for error analysis
+* Load testing data processed into the sample target application can be copied out of the application container and processed to understand errors as follows:
 
 ```
 
@@ -15,8 +15,7 @@
 mkdir -p  16022022007
 ```
 
-
-Copy down from the targt application container:
+- Copy down from the targt application container:
 
 ```
 (base) welcome@Traianos-MacBook-Pro analysis % kubectl cp ragnarok/load-sink-6948f578bc-djghs:/processed/ 16022022007
@@ -42,3 +41,5 @@ DUP: 16022022007/26666 => 6
 .
 .
 ```
+
+- Interpretation: From the above output we can tell the latest processed data captured by the dummy target application container 0 empty files , multiple messages were duplicated and there were messages of sizes ranging from 126 bytes to 127 ...

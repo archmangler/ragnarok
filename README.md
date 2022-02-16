@@ -1,10 +1,18 @@
-# Load Generation Solution for Trade Matching Systems
+# Table of Contents
+
+1. [Example](#example)
+2. [Example2](#example2)
+3. [Third Example](#third-example)
+4. [Fourth Example](#fourth-examplehttpwwwfourthexamplecom)
+
+
+## Load Generation Solution for Trade Matching Systems
 
 A containerised event-driven system for generating transaction load on trading systems.
 
 ![alt text](images/load-testing-scenario-one-implementation.drawio.png?raw=true "System Architecture")
 
-# Operation 
+## Operation 
 
 Users select one of the following options from the Test Management Portal:
 
@@ -35,16 +43,30 @@ View the producer, consumer and other system component metrics (including the du
 
 ![alt text](images/metrics-dashboard.png?raw=true "Metrics Dashboard")
 
-# Installation
+## How it Works
+
+*Refer to the high level diagram:*
+
+![alt text](images/load-engine.drawio.png?raw=true "high level system diagram")
+
+* Load data is generated (by the user) using the load content manager test UI.
+* The data is stored in Redis
+* The "producers" layer consumes the data from Redis and processes it into the asynchronous queue (kafka or pulsar) 
+* The "consumers" layer consumes data from the asynchronous queue, does basic content error checking and drives the message load to the target application via HTTP REST (JSON) or FIX (TODO!)
+* The target application accepts the data via REST or FIX and writes it to a local disk
+* Each of the core layers are elastically scalable, thereby providing the compute power required to drive messages at high rate and volume to the target application.
+
+## Installation
 
 How to install via cli:
 
-* Step #1: configure env.sh, then `source env.sh`
-* Step #2: run the master deploy script: `./deploy.sh`
-* Step #2: run the health check script: `./health.sh`
-* Step #4: review the output of health.sh and troubleshoot any issues.
+* Step #1: configure the terraform parameters for eks or aks `kubernetes/eks-deploy/eks-cluster.tf`
+* Step #2: configure env.sh, then `source env.sh`
+* Step #3: run the master deploy script: `./deploy.sh`
+* Step #4: run the health check script: `./health.sh`
+* Step #5: review the output of health.sh and troubleshoot any issues.
 
-# Compute Resources
+## Compute Resources
 
 * As a reference for the kubernetes cluster sizing, the following AKS deployment on Azure provides a rough idea of the minimum resources required for cloud deployment
 
@@ -54,7 +76,10 @@ How to install via cli:
 
 ![alt text](images/basic-performance-benchmark-26012022.png?raw=true "Cluster Performance on Cloud")
 
-# Troubleshooting procedure
+
+
+
+## Troubleshooting procedure
 
 - View the requests received by the dummy target application (The "black box")
 
