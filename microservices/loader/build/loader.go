@@ -275,7 +275,7 @@ func create_load_file(input_file string, fIndex int, fileCount int) (fc int) {
 	now := time.Now()
 	msgTimestamp := now.UnixNano()
 
-	msgPayload := `[{ "Name": "newOrder","ID":"` + strconv.Itoa(fIndex) + `","Time":"` + strconv.FormatInt(msgTimestamp, 10) + `","Data":"` + hostname + `","Eventname":"transactionRequest"}]`
+	msgPayload := `[{"Name": "newOrder","ID":"` + strconv.Itoa(fIndex) + `","Time":"` + strconv.FormatInt(msgTimestamp, 10) + `","Data":"` + hostname + `","Eventname":"transactionRequest"}]`
 
 	logger(logFile, "prepared message payload: "+msgPayload)
 

@@ -258,9 +258,11 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 		return msgID, err
 	}
 
+	//pack the fields into json structure, this has performance impact
+	//but allows us to insert a tracing id into the data (try putting it into the metadata instead)
 	//We should marshall this json using a well defined struct but lets
 	//take the shortcut for now ...
-	msgPayload = `[{ "Name":"` + msgName + `","ID":"` + input_id + `","Time":"` + msgTimestamp + `","Data":"` + msgData + `","Eventname":"` + msgEventname + `"}]`
+	msgPayload = `[{"Name":"` + msgName + `","ID":"` + input_id + `","Time":"` + msgTimestamp + `","Data":"` + msgData + `","producerName":"` + hostname + `","Eventname":"` + msgEventname + `"}]`
 
 	//get all the required data for the input id and return as json string
 	return msgPayload, err

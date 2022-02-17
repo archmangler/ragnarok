@@ -587,8 +587,9 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 		status = restart_loading_services("producer", namespace, w, r)
 		w.Write([]byte("<html> <br>Restarted producers - " + status + "</html>"))
 
-		status = restart_loading_services("consumer", namespace, w, r)
-		w.Write([]byte("<html> <br>Restarted consumers - " + status + "</html>"))
+		//restarting the consumers at the wrong time appears to result in duplicates ... why?
+		//status = restart_loading_services("consumer", namespace, w, r)
+		//w.Write([]byte("<html> <br>Restarted consumers - " + status + "</html>"))
 
 	}
 
