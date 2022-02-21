@@ -19,7 +19,7 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: archbungle/loader:pulsar-0.0.56
+        image: archbungle/loader:pulsar-0.0.59
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
@@ -28,6 +28,8 @@ spec:
           value: "1"
         - name: NUM_WORKERS
           value: "1"
+        - name: DEFAULT_REPLICA_MAX
+          value: "10"
         - name: PULSAR_BROKER_SERVICE_ADDRESS
           value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
         - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
@@ -42,6 +44,8 @@ spec:
           value: "kafka-1.kafka-headless.kafka.svc.cluster.local:9092"
         - name: KAFKA_BROKER3_ADDRESS
           value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: REDIS_ALLOCATOR_NS_INDEX
+          value: "11"
         - name: REDIS_MASTER_ADDRESS
           value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
         - name: REDIS_REPLICA_ADDRESS

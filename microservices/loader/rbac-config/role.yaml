@@ -4,11 +4,16 @@ metadata:
   name: modify-pods
   namespace: ragnarok
 rules:
-  - apiGroups: [""]
+  - apiGroups: ["","apps"]
     resources:
       - pods
       - deployments
+      - statefulsets
+      - "statefulsets/scale"
     verbs:
       - get
       - list
       - delete
+      - scale
+      - create
+      - patch

@@ -4,10 +4,14 @@ metadata:
   name: modify-pods
   namespace: pulsar
 rules:
-  - apiGroups: [""]
+  - apiGroups: ["","apps"]
     resources:
       - pods
+      - statefulsets
+      - deployments
     verbs:
       - get
       - list
       - delete
+      - scale
+      - restart

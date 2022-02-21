@@ -47,11 +47,15 @@ var start_sequence = 1                                             // start of m
 var end_sequence = 10000                                           // end of message range count
 var port_specifier string = ":" + os.Getenv("METRICS_PORT_NUMBER") // port for metrics service to listen on
 var taskCount int = 0
+var scaleMax, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))
+var workerType string = "producer"
 
 //function call count tracking counter
 var streamAllCount int = 0
 
 //Redis data storage details
+var dbIndex, err = strconv.Atoi(os.Getenv("REDIS_ALLOCATOR_NS_INDEX")) // Separate namespace for management data. integer index > 0  e.g 2
+
 var redisWriteConnectionAddress string = os.Getenv("REDIS_MASTER_ADDRESS") //address:port combination e.g  "my-release-redis-master.default.svc.cluster.local:6379"
 var redisReadConnectionAddress string = os.Getenv("REDIS_REPLICA_ADDRESS") //address:port combination e.g  "my-release-redis-replicas.default.svc.cluster.local:6379"
 var redisAuthPass string = os.Getenv("REDIS_PASS")
@@ -129,7 +133,6 @@ func recordConcurrentWorkers() {
 func newAdminPortal() *adminPortal {
 
 	//initialise the management portal with a loose requirement for username:password
-
 	password := os.Getenv("ADMIN_PASSWORD")
 
 	if password == "" {
@@ -145,27 +148,6 @@ func logger(logFile string, logMessage string) {
 
 	//when we're not logging to file  ...
 	fmt.Println("[log]", logFile, strconv.FormatInt(msgTs, 10), logMessage)
-
-	//When we're logging to file ...logFile
-	/*
-		mutex.Lock()
-
-		f, e := os.OpenFile(logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-
-		if e != nil {
-			log.Fatalf("error opening log file: %v", e)
-		}
-
-		defer f.Close()
-
-		log.SetOutput(f)
-
-		//include the hostname on each log entry
-		logMessage = "[host=" + hostname + "]" + logMessage
-		log.Println(logMessage)
-
-		mutex.Unlock()
-	*/
 
 }
 
@@ -188,50 +170,22 @@ func clear_directory(Dir string) (int, error) {
 
 }
 
-//split the available tasks into equitable chunks
-func divide_and_conquer(inputs []string, numWorkers int) (m map[string][]string) {
-
-	tempMap := make(map[int][]string)
-
-	size := len(inputs) / numWorkers
-
-	logger(logFile, "dividing load into chunks of size: "+strconv.Itoa(size))
-
-	var j int
-	var lc int = 0
-
-	for i := 0; i < len(inputs); i += size {
-
-		j += size
-
-		if j > len(inputs) {
-			j = len(inputs)
-		}
-
-		//just populate the map for now
-		//later assign worker-job pairs
-		tempMap[lc] = inputs[i:j]
-
-		lc++
-
-	}
-
-	tMap := idAllocator(tempMap, numWorkers)
-
-	return tMap
-}
-
 //assign task ranges to workers
-func idAllocator(taskMap map[int][]string, numWorkers int) (m map[string][]string) {
+func idAllocator(workers []string, taskMap map[int][]string, numWorkers int) (m map[string][]string) {
 
 	tMap := make(map[string][]string)
 
 	element := 0
 
-	for i := 1; i <= numWorkers; i++ {
+	for i := range workers {
 
-		taskID := strconv.Itoa(i)
+		taskID := workers[i]
+
 		tMap[taskID] = taskMap[element]
+
+		//debug
+		fmt.Println("assigned ", taskID, " -> ", taskMap[element])
+
 		element++
 
 	}
@@ -259,6 +213,29 @@ func generate_input_sources(inputDir string, startSequence int, endSequence int)
 	logger(logFile, "generated file names: "+strings.Join(inputQueue, ","))
 
 	return inputQueue
+}
+
+func update_management_data_redis(dataIndex string, input_data []string, conn redis.Conn, dataCount int) (count int) {
+
+	//build the message body inputs for json
+	for item := range input_data {
+
+		data := input_data[item]
+
+		fmt.Println("inserting: ", data, " for ", dataIndex)
+
+		_, err := conn.Do("LPUSH", dataIndex, data)
+
+		if err != nil {
+			fmt.Println("failed - LPUSH put data to redis: ", data, err.Error())
+		} else {
+			fmt.Println("ok - LPUSH put data to redis: ", data)
+		}
+
+	}
+
+	dataCount++
+	return dataCount
 }
 
 func put_to_redis(input_file string, fIndex int, fileCount int, conn redis.Conn) (fc int) {
@@ -471,6 +448,197 @@ func backupProcessedData(w http.ResponseWriter, r *http.Request) (int, error) {
 	return fcount, err
 }
 
+func get_worker_pool(workerType string, namespace string) (workers []string, count int) {
+
+	count = 0
+
+	arg1 := "kubectl"
+	arg2 := "get"
+	arg3 := "pods"
+	arg4 := "--namespace"
+	arg5 := namespace
+	arg6 := "--field-selector"
+	arg7 := "status.phase=Running"
+	arg8 := "--no-headers"
+	arg9 := "-o"
+	arg10 := "custom-columns=:metadata.name"
+
+	cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+
+	logger("get_worker_pool", "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7+" "+arg8+" "+arg9+" "+arg10)
+
+	time.Sleep(5 * time.Second) //really should have a loop here waiting for returns ...
+	out, err := cmd.Output()
+
+	if err != nil {
+
+		logger("get_worker_pool", "cannot get worker list "+err.Error())
+
+	} else {
+
+		logger("get_worker_pool", "got current worker list - ok")
+
+	}
+
+	temp := strings.Split(string(out), "\n")
+
+	for line := range temp {
+
+		w := temp[line]
+
+		if strings.Contains(w, workerType) {
+			count++
+			workers = append(workers, w)
+			logger("get_worker_pool", "increment worker count: "+strconv.Itoa(count))
+		}
+
+	}
+
+	return workers, count
+
+}
+
+func update_work_allocation_table(workAllocationMap map[string][]string, workCount int) (wC int) {
+
+	//Connect to redis
+	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Now authenticate
+	response, err := conn.Do("AUTH", redisAuthPass)
+
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("redis auth response: ", response)
+	}
+
+	response, err = conn.Do("SELECT", dbIndex)
+
+	if err != nil {
+		fmt.Println("can't connect to redis namespace: ", dbIndex)
+		panic(err)
+	} else {
+		fmt.Println("redis select namespace response: ", response)
+	}
+
+	//Use defer to ensure the connection is always
+	//properly closed before exiting the main() function.
+	defer conn.Close()
+
+	//map of assigned work (worker pod -> array of message ids)
+	for k, v := range workAllocationMap {
+
+		fmt.Println("store work map item: ", k, " -> ", v, " count: ", workCount)
+		workCount = update_management_data_redis(k, v, conn, workCount)
+	}
+
+	//keep a counter of how many worker entries were written
+	logger("main", "wrote work map for "+strconv.Itoa(workCount)+" workers")
+
+	return workCount
+}
+
+func assign_message_workload_workers(workers []string, inputs []string, numWorkers int) (m map[string][]string) {
+
+	tempMap := make(map[int][]string)
+	size := len(inputs) / numWorkers
+
+	var j int
+	var lc int = 0
+
+	for i := 0; i < len(inputs); i += size {
+
+		j += size
+
+		if j > len(inputs) {
+
+			j = len(inputs)
+
+		}
+
+		//just populate the map for now
+		//later assign worker-job pairs
+		tempMap[lc] = inputs[i:j]
+
+		lc++
+
+	}
+
+	tMap := idAllocator(workers, tempMap, numWorkers)
+
+	return tMap
+}
+
+func deleteFromRedis(inputId string, conn redis.Conn) (err error) {
+
+	//delete stale allocation data from the previous work allocation table
+
+	err = nil
+
+	//build the message body inputs for json
+	fmt.Println("getting data for key: ", inputId)
+
+	msgPayload, err := conn.Do("DEL", inputId)
+
+	if err != nil {
+
+		fmt.Println("OOPS, got this: ", err, " skipping ", inputId)
+
+		return err
+
+	} else {
+
+		fmt.Println("OK - delete got this: ", msgPayload)
+
+	}
+
+	return nil
+}
+
+func delete_stale_allocation_data(workerIdList []string) {
+
+	//Open Redis connection here again ...
+	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Now authenticate
+	response, err := conn.Do("AUTH", redisAuthPass)
+
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("redis auth response: ", response)
+	}
+
+	defer conn.Close()
+
+	for wId := range workerIdList {
+
+		workerId := workerIdList[wId]
+		err := deleteFromRedis(workerId, conn)
+
+		if err != nil {
+
+			logMessage := "Failed to read data for " + workerId + " error code: " + err.Error()
+			logger("delete_redis_data", logMessage)
+
+		} else {
+
+			logMessage := "OK: read payload data for " + workerId
+			logger("delete_redis_data", logMessage)
+
+		}
+
+	}
+}
+
 func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence int, end_sequence int) (string, error) {
 
 	logger(logFile, "Creating synthetic data for workload ...")
@@ -485,7 +653,28 @@ func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence in
 	metadata := strings.Join(inputQueue, ",")
 	logger(logFile, "[debug] generated new workload metadata: "+metadata)
 
-	//Generate the files.
+	//Allocate workers to the input data
+	workCount := 0
+	namespace := "ragnarok"
+
+	//get the currently deployed worker pods in the producer pool
+	workers, cnt := get_worker_pool(workerType, namespace)
+
+	//delete the current work allocation table as it is now stale data
+	delete_stale_allocation_data(workers)
+
+	//Assign message workload to worker pods
+	workAllocationMap := assign_message_workload_workers(workers, inputQueue, cnt)
+
+	//Update the work allocation in a REDIS database
+	update_work_allocation_table(workAllocationMap, workCount)
+
+	//update this global
+	scaleMax = workCount
+
+	w.Write([]byte("<br><html>updated worker allocation table for concurrent message processing.</html>"))
+
+	//Generate the actual message  data.
 	fcnt := process_input_data(inputQueue)
 
 	w.Write([]byte("<br><html>Generated new load test data: " + strconv.Itoa(fcnt) + " files." + "</html>"))
@@ -584,12 +773,10 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("<html><h1>Resetting and restarting load test </h1></html>"))
 
 		//restart all services that need re-initialisation for a new load test
-		status = restart_loading_services("producer", namespace, w, r)
-		w.Write([]byte("<html> <br>Restarted producers - " + status + "</html>"))
+		_, scaleMax := get_worker_pool(workerType, namespace)
+		status = restart_loading_services("producer", scaleMax, namespace, w, r)
 
-		//restarting the consumers at the wrong time appears to result in duplicates ... why?
-		//status = restart_loading_services("consumer", namespace, w, r)
-		//w.Write([]byte("<html> <br>Restarted consumers - " + status + "</html>"))
+		w.Write([]byte("<html> <br>Restarted producers - " + status + "</html>"))
 
 	}
 
@@ -687,19 +874,19 @@ func (a adminPortal) handler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(html_content))
 }
 
-func restart_loading_services(service_name string, namespace string, w http.ResponseWriter, r *http.Request) string {
+func restart_loading_services(service_name string, sMax int, namespace string, w http.ResponseWriter, r *http.Request) string {
 
+	//scale down to 0, then scale up to the current max.
 	arg1 := "kubectl"
-	arg2 := "rollout"
-	arg3 := "status"
-	arg4 := "deployment"
-	arg5 := service_name
+	arg2 := "scale"
+	arg3 := "statefulset"
+	arg4 := service_name
+	arg5 := "--replicas=0"
 	arg6 := "--namespace"
 	arg7 := namespace
+
 	status := "unknown"
 
-	//restart
-	arg3 = "restart"
 	cmd := exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	logger(logFile, "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7)
 
@@ -708,7 +895,7 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 	out, err := cmd.Output()
 
 	if err != nil {
-		logger(logFile, "cannot restart component: "+service_name+" error. "+err.Error())
+		logger(logFile, "cannot stop component: "+service_name+" error. "+err.Error())
 		return "failed"
 
 	} else {
@@ -721,9 +908,17 @@ func restart_loading_services(service_name string, namespace string, w http.Resp
 	logger(logFile, "restart command result: "+theOutput)
 
 	//for the user
-	w.Write([]byte("<html> <br>service status: " + theOutput + "</html>"))
+	w.Write([]byte("<html> <br>scale down service status: " + theOutput + "</html>"))
 
-	//get status
+	arg1 = "kubectl"
+	arg2 = "scale"
+	arg3 = "statefulset"
+	arg4 = service_name
+	arg5 = "--replicas=" + strconv.Itoa(sMax)
+	arg6 = "--namespace"
+	arg7 = namespace
+
+	//scale up
 	cmd = exec.Command(arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 
 	logger(logFile, "Running command: "+arg1+" "+arg2+" "+arg3+" "+arg4+" "+arg5+" "+arg6+" "+arg7)
