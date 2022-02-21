@@ -3,4 +3,4 @@
 #
 
 kubectl create namespace ragnarok
-kubectl apply -f producer-manifest-eks.yaml
+kubectl apply -f producer-manifest-eks-sts.yaml

@@ -210,7 +210,7 @@ func generate_input_sources(inputDir string, startSequence int, endSequence int)
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(inputQueue), func(i, j int) { inputQueue[i], inputQueue[j] = inputQueue[j], inputQueue[i] })
 
-	logger(logFile, "generated file names: "+strings.Join(inputQueue, ","))
+	logger(logFile, "g	: "+strings.Join(inputQueue, ","))
 
 	return inputQueue
 }
@@ -238,7 +238,7 @@ func update_management_data_redis(dataIndex string, input_data []string, conn re
 	return dataCount
 }
 
-func put_to_redis(input_file string, fIndex int, fileCount int, conn redis.Conn) (fc int) {
+func put_to_redis(msgId string, fileCount int, conn redis.Conn) (fc int) {
 
 	// Send our command across the connection. The first parameter to
 	// Do() is always the name of the Redis command (in this example
@@ -249,10 +249,10 @@ func put_to_redis(input_file string, fIndex int, fileCount int, conn redis.Conn)
 	msgTimestamp := now.UnixNano()
 
 	//build the message body inputs for json
-	_, err := conn.Do("HMSET", fIndex, "Name", "newOrder", "ID", strconv.Itoa(fIndex), "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
+	_, err := conn.Do("HMSET", msgId, "Name", "newOrder", "ID", msgId, "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
 
 	if err != nil {
-		fmt.Println("failed to put file to redis: ", input_file, err.Error())
+		fmt.Println("failed to put data to redis: ", msgId, err.Error())
 		//record as a failure metric
 		recordFailureMetrics()
 	} else {
@@ -330,10 +330,12 @@ func process_input_data(tmpFileList []string) int {
 	defer conn.Close()
 
 	fileCount := 0
+
 	for fIndex := range tmpFileList {
 
-		input_file := tmpFileList[fIndex] + ".json"
-		fileCount = put_to_redis(input_file, fIndex, fileCount, conn)
+		inputData := tmpFileList[fIndex]
+
+		fileCount = put_to_redis(inputData, fileCount, conn)
 
 	}
 
@@ -539,6 +541,8 @@ func update_work_allocation_table(workAllocationMap map[string][]string, workCou
 	//keep a counter of how many worker entries were written
 	logger("main", "wrote work map for "+strconv.Itoa(workCount)+" workers")
 
+	response, err = conn.Do("SELECT", 0)
+
 	return workCount
 }
 
@@ -581,6 +585,9 @@ func deleteFromRedis(inputId string, conn redis.Conn) (err error) {
 
 	//build the message body inputs for json
 	fmt.Println("getting data for key: ", inputId)
+
+	//switch to metadata db
+	conn.Do("SELECT", dbIndex)
 
 	msgPayload, err := conn.Do("DEL", inputId)
 
@@ -985,6 +992,9 @@ func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int64, d
 	Data := d["Data"]
 	Eventname := d["Eventname"]
 
+	//select correct DB (0)
+	conn.Do("SELECT", 0)
+
 	//REDIFY
 	fmt.Println("inserting : ", Name, ID, Time, Data, Eventname)
 
@@ -1033,6 +1043,9 @@ func write_message_to_redis(msgCount int, errCount int, temp []string, line int,
 	Time := t.Time
 	Data := t.Data
 	Eventname := t.Eventname
+
+	//select correct DB
+	conn.Do("SELECT", 0)
 
 	//REDIFY
 	_, err = conn.Do("HMSET", line, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
