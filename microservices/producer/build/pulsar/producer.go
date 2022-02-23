@@ -54,6 +54,9 @@ var mutex = &sync.Mutex{}
 var taskMap = make(map[string][]string) //map of files to process
 var purgeMap = make(map[string]string)  //map of files to 'purge' after processing
 
+//for job completion checking
+var readFileList = make(map[int][]string)
+
 //Instrumentation
 var (
 	inputRequestsLoaded = promauto.NewCounter(prometheus.CounterOpts{
@@ -358,7 +361,10 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 	//Get the unique key for the set of input tasks for this worker-job combination
 	taskID := strconv.Itoa(workerId) // can be keyed with: jobId + "-" + strconv.Itoa(jobNum)
-	tmpFileList = taskMap[taskID]
+
+	tmpFileList = taskMap[taskID] //get the messages assigned to this go worker
+
+	logger("process_input_data_redis_concurrent", "[#debug-1]worker: "+taskID+" starting on workload: "+strings.Join(tmpFileList, ","))
 
 	//Open Redis connection here again ...
 	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
@@ -382,6 +388,7 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 	conn.Do("SELECT", 0)
 
 	for fIndex := range tmpFileList {
+
 		input_id := tmpFileList[fIndex]
 
 		payload, err := readFromRedis(input_id, conn) //readFromRedis(input_id string, c conn.Redis) (ds string, err error)
@@ -398,6 +405,9 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 			//record this as a metric
 			recordLoadedMetrics()
+
+			//keep a list of completed input jobs per worker process
+			readFileList[workerId] = append(readFileList[workerId], input_id)
 
 		}
 
@@ -423,14 +433,19 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 	}
 
-	logger(logFile, "completing task"+strconv.Itoa(taskCount))
+	logger(logFile, "completing task: "+strconv.Itoa(taskCount))
 
 	//it's a global variable being updated concurrently, so mutex lock ...
 	mutex.Lock()
 	taskCount++
 	mutex.Unlock()
 
-	logger(logFile, "completed task"+strconv.Itoa(taskCount))
+	logger(logFile, "completed task: "+strconv.Itoa(taskCount))
+
+	//Summarise the work completed by this worker:
+	for k, v := range readFileList {
+		logger(logFile, "[#debug-1] worker process: "+strconv.Itoa(k)+" completed tasks: "+strings.Join(v, ","))
+	}
 
 	//please fix this!!
 	if taskCount == numWorkers-1 || taskCount == numWorkers {
@@ -701,120 +716,37 @@ func worker(id int, jobs <-chan int, results chan<- int) {
 
 }
 
-/*
-func read_input_sources_redis(allocation []string) (inputs []string) {
-
-	fmt.Println("getting assigned workload from redis: ", allocation, len(allocation))
-
-	var inputQueue []string
-
-	//Get from Redis
-	conn, err := redis.Dial("tcp", redisReadConnectionAddress)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Now authenticate
-	response, err := conn.Do("AUTH", redisAuthPass)
-
-	if err != nil {
-		panic(err)
-	} else {
-		fmt.Println("redis auth response: ", response)
-	}
-
-	defer conn.Close()
-
-	//select correct DB
-	_, err = conn.Do("SELECT", 0)
-
-	if err != nil {
-		fmt.Println("cannot select message db: ", 0)
-		log.Fatal(err)
-	} else {
-		fmt.Println("ok - selected message db: ", 0)
-	}
-
-	//REPLACE WITH A RANGE QUERY!! of some sort ...
-	//GET ALL VALUES FROM DISCOVERED KEYS ONLY
-	data, err := redis.Strings(conn.Do("KEYS", "*"))
-	dLength := len(data)
-
-	if err != nil {
-		log.Fatal(err)
-	} else {
-		fmt.Println("got data from message data db. length: ", dLength)
-	}
-
-	//this is truly a waste of cpu cycles ...
-	//fix this by guaranteeing message order in REDIS
-
-	cnt := 0
-	for m := range allocation {
-		for _, msgID := range data {
-			fmt.Println("debug> compare: ", allocation[m], " ? ", msgID)
-			if allocation[m] == msgID {
-				inputQueue = append(inputQueue, msgID)
-				fmt.Println("debug> MATCH ", allocation[m], " == ", msgID)
-				cnt++
-			}
-		}
-	}
-
-	fmt.Println("ok - finalised work list subset: ", inputQueue, " retrieved messages: ", strconv.Itoa(cnt))
-
-	//return the list of messages that exist in redis ...
-	return inputQueue
-}
-*/
-
-func read_input_sources(inputDir string) (inputs []string) {
-
-	var inputQueue []string
-
-	//get direct from file storage
-	files, _ := ioutil.ReadDir(inputDir)
-
-	//optional error check: performance penalty ...
-	//check_errors(err, 0)
-
-	for _, f := range files {
-		inputQueue = append(inputQueue, f.Name())
-	}
-
-	//To ensure all worker pods, in a kubernetes scenario, don't operate on the same batch of files at any given time:
-	//CONSIDER NOT DOING THIS!!! Maybe you want to preserve the sequence ???
-	//rand.Seed(time.Now().UnixNano())
-	//rand.Shuffle(len(inputQueue), func(i, j int) { inputQueue[i], inputQueue[j] = inputQueue[j], inputQueue[i] })
-
-	return inputQueue
-}
-
+//#debug
 func idAllocator(taskMap map[int][]string, numWorkers int) (m map[string][]string) {
 
 	tMap := make(map[string][]string)
-
 	element := 0
 
-	for i := 1; i <= numWorkers; i++ {
+	//print out incoming taskMap
+	fmt.Println("#debug1 (idAllocator): received incoming tasks map", taskMap)
 
+	for i := 1; i <= numWorkers; i++ {
 		taskID := strconv.Itoa(i)
 		tMap[taskID] = taskMap[element]
 		element++
-
+		logMessage := "worker process: " + taskID + " assigned tasks: " + strings.Join(tMap[taskID], ",")
+		logger(logFile, logMessage)
 	}
+
+	fmt.Println("#debug1 (idAllocator): created assigned task map", tMap)
 
 	return tMap
 }
 
+//debug this
 func divide_and_conquer(inputs []string, numWorkers int, numJobs int) (m map[string][]string) {
 
 	tempMap := make(map[int][]string)
 
-	size := len(inputs) / numWorkers
+	//+1 to ensure the allocation remains under the worker count
+	size := (len(inputs) / numWorkers) + 1
 
-	var j int
+	var j int = 0
 	var lc int = 0
 
 	for i := 0; i < len(inputs); i += size {
@@ -832,6 +764,9 @@ func divide_and_conquer(inputs []string, numWorkers int, numJobs int) (m map[str
 		lc++
 
 	}
+
+	//debugging
+	fmt.Println("#debug (divide_and_conquer): index: " + strconv.Itoa(j) + " size: " + strconv.Itoa(size) + " assignment iterations: " + strconv.Itoa(lc) + " number of workers: " + strconv.Itoa(numWorkers))
 
 	tMap := idAllocator(tempMap, numWorkers)
 

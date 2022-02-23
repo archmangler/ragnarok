@@ -1,7 +1,9 @@
 #!/bin/bash
-#cleanup helper script to discover dependencies
+#cleanup helper script to discover dependencies and cleanup an unclean terraform destroy
+#https://aws.amazon.com/premiumsupport/knowledge-center/troubleshoot-dependency-error-delete-vpc/
+#this is needed for now because terraform destroy of the EKS module not  clean.
 
-vpc="vpc-0602c5dcd395c0f70" 
+vpc="vpc-00e943247bc428623"
 region="ap-southeast-1"
 
 function list_all_dependents () {

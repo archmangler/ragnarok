@@ -56,6 +56,15 @@ View the producer, consumer and other system component metrics (including the du
 * The target application accepts the data via REST or FIX and writes it to a local disk
 * Each of the core layers are elastically scalable, thereby providing the compute power required to drive messages at high rate and volume to the target application.
 
+## Technology and Implementation
+
+- The current immplementation involves the following technologies:
+
+* Redis:
+* Pulsar or Kafka:
+* Kubernetes (EKS on AWS|AKS on Azure):
+* Golang:
+
 ## Installation
 
 How to install via cli:

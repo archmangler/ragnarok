@@ -217,6 +217,7 @@ function update_registry_access () {
 deploy_kubernetes_cluster
 create_namespaces
 deploy_ingress_controller
+deploy_ingress_service
 deploy_prometheus_services
 deploy_grafana_services
 deploy_redis_services
@@ -229,4 +230,3 @@ deploy_sink_service
 deploy_producer_service
 deploy_consumer_service
 deploy_loader_service
-deploy_ingress_service
