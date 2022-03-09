@@ -272,42 +272,97 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 	conn.Do("SELECT", 0)
 
 	//build the message body inputs for json
-	//_, err := conn.Do("HMSET", fIndex, "Name", "newOrder", "ID", strconv.Itoa(fIndex), "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
-	msgID, err := redis.String(conn.Do("HGET", input_id, "ID"))
+	//	_, err = conn.Do("HMSET", msgIndex, "instrumentId", InstrumentId, "symbol", Symbol, "userId", UserId, "side", Side, "ordType", OrdType, "price", Price, "price_scale", Price_scale, "quantity", \
+	// Quantity, "quantity_scale", Quantity_scale, "nonce", Nonce, "blockWaitAck", BlockWaitAck, "clOrdId", ClOrdId)
+
+	InstrumentId, err := redis.String(conn.Do("HGET", input_id, "instrumentId"))
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
-		return msgID, err
+		return input_id, err
 	}
 
-	msgName, err := redis.String(conn.Do("HGET", input_id, "Name"))
+	Symbol, err := redis.String(conn.Do("HGET", input_id, "symbol"))
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
-		return msgID, err
+		return input_id, err
 	}
 
-	msgTimestamp, err := redis.String(conn.Do("HGET", input_id, "Time"))
+	UserId, err := redis.String(conn.Do("HGET", input_id, "userId"))
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
-		return msgID, err
+		return input_id, err
 	}
 
-	msgData, err := redis.String(conn.Do("HGET", input_id, "Data"))
+	Side, err := redis.String(conn.Do("HGET", input_id, "side"))
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
-		return msgID, err
+		return input_id, err
 	}
 
-	msgEventname, err := redis.String(conn.Do("HGET", input_id, "Eventname"))
+	OrdType, err := redis.String(conn.Do("HGET", input_id, "ordType"))
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
-		return msgID, err
+		return input_id, err
+	}
+
+	Price, err := redis.String(conn.Do("HGET", input_id, "price"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Price_scale, err := redis.String(conn.Do("HGET", input_id, "price_scale"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Quantity, err := redis.String(conn.Do("HGET", input_id, "quantity"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Quantity_scale, err := redis.String(conn.Do("HGET", input_id, "quantity_scale"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Nonce, err := redis.String(conn.Do("HGET", input_id, "nonce"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	BlockWaitAck, err := redis.String(conn.Do("HGET", input_id, "blockWaitAck"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	ClOrdId, err := redis.String(conn.Do("HGET", input_id, "clOrdId"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
 	}
 
 	//pack the fields into json structure, this has performance impact
 	//but allows us to insert a tracing id into the data (try putting it into the metadata instead)
 	//We should marshall this json using a well defined struct but lets
 	//take the shortcut for now ...
-	msgPayload = `[{"Name":"` + msgName + `","ID":"` + input_id + `","Time":"` + msgTimestamp + `","Data":"` + msgData + `","producerName":"` + hostname + `","Eventname":"` + msgEventname + `"}]`
+	msgPayload = `[{"instrumentId":"` + InstrumentId +
+		`","symbol":"` + Symbol +
+		`","userId":"` + UserId +
+		`","side":"` + Side +
+		`","ordType":"` + OrdType +
+		`","price":"` + Price +
+		`","price_scale":"` + Price_scale +
+		`","quantity":"` + Quantity +
+		`","quantity_scale":"` + Quantity_scale +
+		`","nonce":"` + Nonce +
+		`","blockWaitAck,":"` + BlockWaitAck +
+		`","clOrdId":"` + ClOrdId + `"}]`
 
 	fmt.Println("got msg from redis ->", msgPayload, "<-")
 
@@ -845,7 +900,7 @@ func main() {
 		fmt.Println("OK - got work allocation: ", workAllocation)
 	}
 
-	//inputQueue := read_input_sources_redis(workAllocation) //Alternatively, get the total list of input data files from redis instead
+	//??? inputQueue := read_input_sources_redis(workAllocation) //Alternatively, get the total list of input data files from redis instead
 
 	taskMap = divide_and_conquer(workAllocation, numWorkers, numJobs) //get the allocation of workers to task-sets
 

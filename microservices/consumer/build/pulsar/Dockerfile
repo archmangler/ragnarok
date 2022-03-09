@@ -13,6 +13,8 @@ COPY oauth2/ ./oauth2/
 COPY pulsar/ ./pulsar/
 RUN go mod download
 COPY *.go ./
+COPY use.py ./
+COPY sign384.py ./
 
 RUN go build -o /consumer
 

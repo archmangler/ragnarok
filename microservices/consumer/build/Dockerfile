@@ -8,9 +8,10 @@ COPY go.sum ./
 
 RUN go mod download
 COPY *.go ./
+COPY use.py ./
+COPY sign384.py ./
 
 RUN go build -o /consumer
-
 RUN mkdir -p /data
 
 CMD /consumer

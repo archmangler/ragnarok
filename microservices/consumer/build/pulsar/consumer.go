@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -39,37 +40,121 @@ var target_api_url string = os.Getenv("TARGET_API_URL") // e.g To use the dummy 
 
 var hostname string = os.Getenv("HOSTNAME")                            // "the pod hostname (in k8s) which ran this instance of go"
 var logFile string = os.Getenv("LOCAL_LOGFILE_PATH") + "/consumer.log" // "/data/applogs/consumer.log"
-//var consumer_group = os.Getenv("CONSUMER_GROUP")                       // we set the consumer group name to the podname / hostname
-var consumer_group = os.Getenv("HOSTNAME") // we set the consumer group name to the podname / hostname
+var consumer_group = os.Getenv("HOSTNAME")                             // we set the consumer group name to the podname / hostname
 
-//produce a context for Kafka
-//var ctx = context.Background()
+//API login details
+var base_url string = os.Getenv("API_BASE_URL")                //"trading-api.dexp-qa.com"
+var password string = os.Getenv("TRADING_API_PASSWORD")        //"lolEx@20222@@"
+var username string = os.Getenv("TRADING_API_USERNAME")        //"ngocdf1_qa_indi_7uxp@mailinator.com"
+var userID int = 2661                                          // really arbitrary placehodler
+var clOrdId string = os.Getenv("TRADING_API_CLORID")           //"test-1-traiano45"
+var blockWaitAck, _ = strconv.Atoi(os.Getenv("BLOCKWAIT_ACK")) //blockwaitack
+var account int = 0                                            //updated with the value of requestID for each new login to the API
 
 //Global Error Counter during lifetime of this service run
 var errorCount int = 0
 var requestCount int = 0
 
-/*Payload message format example
-[
-  {
-    "Name": "newOrder",
-    "ID": "8276",
-    "Time": "8276",
-    "Data": "new order",
-    "Eventname": "newOrder"
-  }
-]
-*/
-
+//Parsing and inspection of the Order
 type Payload struct {
-	Name      string
-	ID        string
-	Time      string
-	Data      string
-	Eventname string
+	InstrumentId   int    `json:"instrumentId"`
+	Symbol         string `json:"symbol"`
+	UserId         int    `json:"userId"`
+	Side           int    `json:"side"`
+	OrdType        int    `json:"ordType"`
+	Price          int    `json:"price"`
+	Price_scale    int    `json:"price_scale"`
+	Quantity       int    `json:"quantity"`
+	Quantity_scale int    `json:"quantity_scale"`
+	Nonce          int    `json:"nonce"`
+	BlockWaitAck   int    `json:"blockWaitAck "`
+	ClOrdId        string `json:"clOrdId"`
 }
 
-//Instrumentation
+//Logon to the API
+type authCredential struct {
+	Id            int    `json:"id"`
+	RequestToken  string `json:"requestToken"`
+	RequestSecret string `json:"requestSecret"`
+}
+
+//We need to eventually replace this with a Golang native method as callouts to python
+//are inefficient
+func sign_api_request(apiSecret string, requestBody string) (s string) {
+	//This is a very nasty workaround with potentially negative performance implications
+	out, err := exec.Command("python3", "use.py", apiSecret, requestBody).Output()
+
+	if err != nil {
+		fmt.Println("sign_api_request error!", err)
+	}
+
+	s = strings.TrimSuffix(string(out), "\n")
+	return s
+}
+
+//4. build up the request body
+func create_order(secret_key string, api_key string, base_url string, orderParameters map[string]string) {
+
+	//Request body for POSTing a Trade
+	params, err := json.Marshal(orderParameters)
+
+	if err != nil {
+		fmt.Println("failed to jsonify: ", params)
+	}
+
+	requestString := string(params)
+
+	//debug
+	fmt.Println("request parameters -> ", requestString)
+	sig := sign_api_request(secret_key, requestString)
+
+	//debug
+	fmt.Println("request signature -> ", sig)
+
+	trade_request_url := "https://" + base_url + "/api/order"
+
+	//Set the client connection custom properties
+	fmt.Println("setting client connection properties.")
+	client := http.Client{}
+
+	//POST body
+	fmt.Println("creating new POST request: ")
+	request, err := http.NewRequest("POST", trade_request_url, bytes.NewBuffer(params))
+
+	//set some headers
+	fmt.Println("setting request headers ...")
+	request.Header.Set("Content-type", "application/json")
+	request.Header.Set("requestToken", api_key)
+	request.Header.Set("signature", sig)
+
+	if err != nil {
+		fmt.Println("error after header addition: ")
+		log.Fatalln(err)
+	}
+
+	fmt.Println("executing the POST ...")
+	resp, err := client.Do(request)
+
+	if err != nil {
+		fmt.Println("error after executing POST: ")
+		log.Fatalln(err)
+	}
+
+	defer resp.Body.Close()
+	fmt.Println("reading response body ...")
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		fmt.Println("error reading response body: ")
+		log.Fatalln(err)
+	}
+
+	sb := string(body)
+
+	fmt.Println("got response output: ", sb)
+}
+
+//Instrumentation and metrics
 var (
 	consumedRequests = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "load_consumer_consumed_requests_total",
@@ -137,6 +222,7 @@ func recordConcurrentWorkers() {
 //messages consumed from kafka are dumped into the output-api shared folder.
 var output_directory string = os.Getenv("OUTPUT_DIRECTORY_PATH") + "/" // "/data/output-api"
 
+//skeleton for an error logging and handling function
 func check_errors(e error, jobId int) {
 
 	if e != nil {
@@ -144,6 +230,24 @@ func check_errors(e error, jobId int) {
 		logger(logFile, logMessage)
 	}
 
+}
+
+//3. Modify JSON document with newuser ID and any other details that's needed to update old order data
+//updateOrder(order, account, blockWaitAck, userId, clOrdId)
+func updateOrder(order map[string]string, account int, blockWaitAck int, userId int, clOrdId string) (Order map[string]string) {
+
+	//replace the userId with the currently active user
+	Order = order
+
+	//debug
+	fmt.Println("debug (updateOrder): ", userId, clOrdId, blockWaitAck, account)
+
+	Order["clOrdId"] = clOrdId
+	Order["userId"] = strconv.Itoa(userId)
+	Order["blockWaitAck"] = strconv.Itoa(blockWaitAck)
+	Order["account"] = strconv.Itoa(account)
+
+	return Order
 }
 
 //custom parsing of JSON struct
@@ -160,11 +264,20 @@ func parseJSONmessage(theString string) map[string]string {
 
 	json.Unmarshal([]byte(theString), &data)
 
-	dMap["Name"] = string(data.Name)
-	dMap["ID"] = string(data.ID)
-	dMap["Time"] = string(data.Time)
-	dMap["Data"] = string(data.Data)
-	dMap["Eventname"] = string(data.Eventname)
+	dMap["instrumentId"] = fmt.Sprint(data.InstrumentId)
+	dMap["symbol"] = string(data.Symbol)
+	dMap["userId"] = fmt.Sprint(data.UserId)
+	dMap["side"] = fmt.Sprint(data.Side)
+	dMap["ordType"] = fmt.Sprint(data.OrdType)
+	dMap["price"] = fmt.Sprint(data.Price)
+	dMap["price_scale"] = fmt.Sprint(data.Price_scale)
+	dMap["quantity"] = fmt.Sprint(data.Quantity)
+	dMap["quantity_scale"] = fmt.Sprint(data.Quantity_scale)
+	dMap["nonce"] = fmt.Sprint(data.Nonce)
+	dMap["blockWaitAck"] = fmt.Sprint(data.BlockWaitAck)
+	dMap["clOrdId"] = string(data.ClOrdId)
+
+	fmt.Println("field extraction: ", dMap)
 
 	return dMap
 }
@@ -181,6 +294,7 @@ func empty_msg_check(message string) (err error) {
 }
 
 //simple illustrative data check for message (this is optional, really)
+//Add all your pre-POST data checking here!
 func data_check(message string) (err error) {
 
 	dMap := parseJSONmessage(message)
@@ -196,6 +310,7 @@ func data_check(message string) (err error) {
 	return nil
 }
 
+//Example of a pretask run before the main work function
 func notify_job_start(workerId int, jobNum int) {
 
 	logMessage := "worker" + strconv.Itoa(workerId) + "started  job" + strconv.Itoa(jobNum)
@@ -203,6 +318,7 @@ func notify_job_start(workerId int, jobNum int) {
 
 }
 
+//example of a post task run after the main work function
 func notify_job_finish(workerId int, jobNum int) {
 
 	logMessage := "worker" + strconv.Itoa(workerId) + "finished job" + strconv.Itoa(jobNum)
@@ -215,18 +331,43 @@ func logger(logFile string, logMessage string) {
 	msgTimestamp := now.UnixNano()
 
 	logMessage = strconv.FormatInt(msgTimestamp, 10) + " [host=" + hostname + "]" + logMessage + " " + logFile
-
 	fmt.Println(logMessage)
 }
 
-func consume_payload_data(client pulsar.Client, topic string, id int) {
+//2. Expand JSON into POST body
+func jsonToMap(theString string) map[string]string {
+
+	dMap := make(map[string]string)
+	data := Payload{}
+
+	json.Unmarshal([]byte(theString), &data)
+
+	dMap["instrumentId"] = fmt.Sprint(data.InstrumentId)
+	dMap["symbol"] = string(data.Symbol)
+	dMap["userId"] = fmt.Sprint(data.UserId)
+	dMap["side"] = fmt.Sprint(data.Side)
+	dMap["ordType"] = fmt.Sprint(data.OrdType)
+	dMap["price"] = fmt.Sprint(data.Price)
+	dMap["price_scale"] = fmt.Sprint(data.Price_scale)
+	dMap["quantity"] = fmt.Sprint(data.Quantity)
+	dMap["quantity_scale"] = fmt.Sprint(data.Quantity_scale)
+	dMap["nonce"] = fmt.Sprint(data.Nonce)
+	dMap["blockWaitAck"] = fmt.Sprint(data.BlockWaitAck)
+	dMap["clOrdId"] = string(data.ClOrdId)
+
+	fmt.Printf("debug %s\n", dMap)
+
+	return dMap
+}
+
+func consume_payload_data(client pulsar.Client, topic string, id int, credentials map[string]string) {
 
 	// initialize a new reader with the brokers and topic
 	// the groupID identifies the consumer and prevents
 	// it from receiving duplicate messages
 
 	logMessage := "worker " + strconv.Itoa(id) + "consuming from topic " + topic
-	logger(logFile, logMessage)
+	logger("consume_payload_data", logMessage)
 
 	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
 		Topic:            topic,
@@ -253,7 +394,7 @@ func consume_payload_data(client pulsar.Client, topic string, id int) {
 			msg.ID(), string(msg.Payload()))
 
 		//message acknowledgment
-		//Do we need this ?
+		//Do we need this ? Under what conditions ?
 		consumer.Ack(msg)
 
 		message := string(msg.Payload())
@@ -263,7 +404,7 @@ func consume_payload_data(client pulsar.Client, topic string, id int) {
 		if err != nil {
 
 			logMessage := "ERROR: empty message (skipping): " + message
-			logger(logFile, logMessage)
+			logger("consume_payload_data", logMessage)
 
 		} else {
 
@@ -274,57 +415,82 @@ func consume_payload_data(client pulsar.Client, topic string, id int) {
 				//incremement error metric
 				errorCount += 1
 				logMessage := "Error Count: " + strconv.Itoa(errorCount)
-				logger(logFile, logMessage)
+				logger("consume_payload_data", logMessage)
 
 			} else {
 
-				var jsonStr = []byte(message)
-				req, err := http.NewRequest("POST", target_api_url, bytes.NewBuffer(jsonStr))
-				req.Header.Set("X-Custom-Header", "loadtest")
-				req.Header.Set("Content-Type", "application/json")
+				//sign the body and create an order (order map[string]string )
 
-				client := &http.Client{}
+				order := jsonToMap(message) //convert the json string to a map[string]string to access the order elements
 
-				//Post to the target URL
-				resp, err := client.Do(req)
+				//updateOrder(order map[string]string, account int, blockWaitAck int, userId int, clOrdId string) (o map[string]string)
+				order = updateOrder(order, account, blockWaitAck, userID, clOrdId)
 
-				if err != nil {
-					b, _ := httputil.DumpResponse(resp, true)
-					logMessage := "Failed to post payload to target API" + string(b)
-					logger(logFile, logMessage)
+				fmt.Println("debug: updated order details: ", order)
 
-					if err != nil {
+				create_order(credentials["secret_key"], credentials["api_key"], base_url, order)
 
-						//publish metric to the metrics topic
-						errorCount += 1
-
-						//produce(message, ctx, topic2)
-
-						logMessage := "could not write message to API" + err.Error()
-						logger(logFile, logMessage)
-
-					} else {
-
-						//If all went well ...
-						logMessage = "wrote message to API: " + message
-						logger(logFile, logMessage)
-
-					}
-
-				}
 			}
 		}
 	}
 
 }
 
-func dumb_worker(id int, client pulsar.Client) {
+func dumb_worker(id int, client pulsar.Client, credentials map[string]string) {
+
 	for {
-		consume_payload_data(client, topic0, id)
+		consume_payload_data(client, topic0, id, credentials)
 	}
+
+}
+
+func apiLogon(username string, password string, userID int, base_url string) (credentials map[string]string) {
+
+	params := `{ "login":"` + username + `",  "password":"` + password + `",  "userId":"` + strconv.Itoa(userID) + `"}`
+	responseBytes := []byte(params)
+	responseBody := bytes.NewBuffer(responseBytes)
+
+	fmt.Println(responseBody)
+	resp, err := http.Post("https://"+base_url+"/api/logon", "application/json", responseBody)
+
+	//Handle Error
+	if err != nil {
+		log.Fatalf("An Error Occured %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	//Read the response body
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	sb := string(body)
+
+	fmt.Println(sb) //marshall into an authcredential struct
+	loginData := authCredential{}
+	json.Unmarshal([]byte(sb), &loginData)
+
+	//extract tokens
+	credentials["request_id"] = strconv.Itoa(loginData.Id)
+	credentials["api_key"] = loginData.RequestToken
+	credentials["secret_key"] = loginData.RequestSecret
+
+	return credentials
+
 }
 
 func main() {
+
+	//login to the Trading API (assuming a single user for now)
+	credentials := apiLogon(username, password, userID, base_url)
+
+	//update old order data with unique, current information
+	request_id, _ := strconv.Atoi(credentials["request_id"])
+	userID = request_id
+	account = request_id
 
 	//Connect to Pulsar
 	client, err := pulsar.NewClient(
@@ -351,6 +517,6 @@ func main() {
 	}()
 
 	//using a simple, single threaded loop - sequential consumption
-	dumb_worker(1, client)
+	dumb_worker(1, client, credentials)
 
 }

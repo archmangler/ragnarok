@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
@@ -66,12 +67,20 @@ var mutex = &sync.Mutex{}
 //map of task allocation to concurrent workers
 var taskMap = make(map[string][]string)
 
-type Payload struct {
-	Name      string
-	ID        string
-	Time      string
-	Data      string
-	Eventname string
+//{"instrumentId":128,"symbol":"BTC/USDC[Infi]","userId":25097,"side":2,"ordType":2,"price":5173054,"price_scale":2,"quantity":61300,"quantity_scale":6,"nonce":1645495020701,"blockWaitAck":0,"clOrdId":""}
+type Order struct {
+	InstrumentId   int    `json:"instrumentId"`
+	Symbol         string `json:"symbol"`
+	UserId         int    `json:"userId"`
+	Side           int    `json:"side"`
+	OrdType        int    `json:"ordType"`
+	Price          int    `json:"price"`
+	Price_scale    int    `json:"price_scale"`
+	Quantity       int    `json:"quantity"`
+	Quantity_scale int    `json:"quantity_scale"`
+	Nonce          int    `json:"nonce"`
+	BlockWaitAck   int    `json:"blockWaitAck "`
+	ClOrdId        string `json:"clOrdId"`
 }
 
 //Management Portal Component
@@ -193,24 +202,22 @@ func idAllocator(workers []string, taskMap map[int][]string, numWorkers int) (m 
 	return tMap
 }
 
-func generate_input_sources(inputDir string, startSequence int, endSequence int) (inputs []string) {
+func generate_input_sources(startSequence int, endSequence int) (inputs []string) {
+
 	//Generate filenames and ensure the list is randomised
 	var inputQueue []string
-
-	logger(logFile, "generating new file names: "+strings.Join(inputQueue, ","))
+	logger(logFile, "generating new file names")
 
 	for f := startSequence; f <= endSequence; f++ {
-
 		//IF USING filestorage:		inputQueue = append(inputQueue, inputDir+strconv.Itoa(f))
 		inputQueue = append(inputQueue, strconv.Itoa(f))
-
 	}
 
 	//To ensure all worker pods, in a kubernetes scenario, don't operate on the same batch of files at any given time:
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(inputQueue), func(i, j int) { inputQueue[i], inputQueue[j] = inputQueue[j], inputQueue[i] })
 
-	logger(logFile, "g	: "+strings.Join(inputQueue, ","))
+	logger("generate_input_sources", "g	: "+strings.Join(inputQueue, ","))
 
 	return inputQueue
 }
@@ -238,6 +245,44 @@ func update_management_data_redis(dataIndex string, input_data []string, conn re
 	return dataCount
 }
 
+//Creatively Synthesise random trades from nothing
+func fabricate_order(ts int64, msgIndex string, conn redis.Conn) (err error) {
+
+	//Sample: {"instrumentId":128,"symbol":"BTC/USDC[Infi]","userId":xxxx,"side":2,"ordType":2,"price":5173054,"price_scale":2,"quantity":61300,"quantity_scale":6,"nonce":1645495020701,"blockWaitAck":0,"clOrdId":""}
+	rand.Seed(time.Now().UnixNano())
+
+	rangeLower := 1000000
+	rangeUpper := 5200000
+	randomNum := rangeLower + rand.Intn(rangeUpper-rangeLower+1)
+
+	InstrumentId := 128
+	Symbol := "BTC/USDC[Infi]"
+	UserId := 25777 //get's changed further upstream anyway
+	Side := 2
+	OrdType := 2
+	Price := randomNum //randomize!
+	Price_scale := 2
+
+	rangeLower = 10000
+	rangeUpper = 65000
+	randomNum = rangeLower + rand.Intn(rangeUpper-rangeLower+1)
+
+	Quantity := randomNum // randomize
+	Quantity_scale := 6
+
+	rangeLower = 1000000000001
+	rangeUpper = 1845495020701
+	randomNum = rangeLower + rand.Intn(rangeUpper-rangeLower+1)
+
+	Nonce := randomNum //randomize
+	BlockWaitAck := 1
+	ClOrdId := hostname
+
+	_, err = conn.Do("HMSET", msgIndex, "instrumentId", InstrumentId, "symbol", Symbol, "userId", UserId, "side", Side, "ordType", OrdType, "price", Price, "price_scale", Price_scale, "quantity", Quantity, "quantity_scale", Quantity_scale, "nonce", Nonce, "blockWaitAck", BlockWaitAck, "clOrdId", ClOrdId)
+
+	return err
+}
+
 func put_to_redis(msgId string, fileCount int, conn redis.Conn) (fc int) {
 
 	// Send our command across the connection. The first parameter to
@@ -249,16 +294,24 @@ func put_to_redis(msgId string, fileCount int, conn redis.Conn) (fc int) {
 	msgTimestamp := now.UnixNano()
 
 	//build the message body inputs for json
-	_, err := conn.Do("HMSET", msgId, "Name", "newOrder", "ID", msgId, "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
+
+	//_, err := conn.Do("HMSET", msgId, "Name", "newOrder", "ID", msgId, "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
+
+	//make up an imaginary trade
+	err := fabricate_order(msgTimestamp, msgId, conn)
 
 	if err != nil {
+
 		fmt.Println("failed to put data to redis: ", msgId, err.Error())
 		//record as a failure metric
 		recordFailureMetrics()
+
 	} else {
+
 		//record as a success metric
 		recordSuccessMetrics()
 		fileCount++
+
 	}
 
 	return fileCount
@@ -656,7 +709,8 @@ func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence in
 	w.Write([]byte("<html><h1>Generating and Loading Synthetic Data</h1></html>"))
 
 	//Generate input file list and distribute among workers
-	inputQueue := generate_input_sources(source_directory, start_sequence, end_sequence) //Generate the total list of input files in the source dirs
+	inputQueue := generate_input_sources(start_sequence, end_sequence) //Generate the total list of input files in the source dirs
+
 	metadata := strings.Join(inputQueue, ",")
 	logger(logFile, "[debug] generated new workload metadata: "+metadata)
 
@@ -810,7 +864,7 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("unable to convert string end_of_sequence to int64")
 		}
 
-		//modify to use pulsar
+		//modified to use pulsar
 		dataCount, errorCount := dump_pulsar_messages_to_input(primaryTopic, SoS, EoS)
 
 		w.Write([]byte("<html> <br>Loaded " + strconv.Itoa(dataCount) + " requests in range from topic. With " + strconv.Itoa(errorCount) + " errors. </html>"))
@@ -984,83 +1038,43 @@ func write_message_from_pulsar(msgCount int, errCount int, temp []string, line i
 
 func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int64, d map[string]string, conn redis.Conn) (int, int) {
 
-	logger("write_binary_message_to_redis", "[calling write_binary_message_to_redis]")
+	logger("write_binary_message_to_redis", "#debug (write_binary_message_to_redis)")
 
-	Name := d["Name"]
-	ID := d["ID"]
-	Time := d["Time"]
-	Data := d["Data"]
-	Eventname := d["Eventname"]
+	InstrumentId := d["instrumentId"]
+	Symbol := d["symbol"]
+	UserId := d["userId"]
+	Side := d["side"]
+	OrdType := d["ordType"]
+	Price := d["price"]
+	Price_scale := d["price_scale"]
+	Quantity := d["quantity"]
+	Quantity_scale := d["quantity_scale"]
+	Nonce := d["nonce"]
+	BlockWaitAck := d["blockWaitAck"]
+	ClOrdId := d["clOrdId"]
 
 	//select correct DB (0)
 	conn.Do("SELECT", 0)
 
 	//REDIFY
-	fmt.Println("inserting : ", Name, ID, Time, Data, Eventname)
+	fmt.Println("inserting : ", InstrumentId, Symbol, UserId, Side, OrdType, Price, Price_scale, Quantity, Quantity_scale, Nonce, BlockWaitAck, ClOrdId)
+	logger("write_binary_message_to_redis", "#debug (write_binary_message_to_redis): inserting to redis with Do - HMSET ...")
 
-	logger("write_binary_message_to_redis", "DEBUG> inserting to redis with Do - HMSET ...")
-	_, err := conn.Do("HMSET", msgIndex, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
-
-	if err != nil {
-		logger("write_binary_message_to_redis", "error writing message to redis: "+err.Error())
-		//record as a failure metric
-		errCount++
-
-	} else {
-		logger("write_binary_message_to_redis", "wrote message to redis. count: "+strconv.Itoa(msgCount))
-		//record as a success metric
-		msgCount++
-	}
-
-	return msgCount, errCount
-}
-
-func write_message_to_redis(msgCount int, errCount int, temp []string, line int, conn redis.Conn) (int, int) {
-	//write an array of messages to redis, each line being a single entry in the array
-
-	s := temp[line]
-
-	var t Payload
-
-	s = strings.Replace(s, "[", "", -1)
-	s = strings.Replace(s, "]", "", -1)
-
-	logger(logFile, "will write to redis: "+s)
-
-	b := []byte(s)
-
-	err := json.Unmarshal(b, &t)
-
-	if err == nil {
-		fmt.Printf("%+v\n", t)
-	} else {
-		fmt.Println(err)
-		fmt.Printf("%+v\n", t)
-	}
-
-	Name := t.Name
-	ID := t.ID
-	Time := t.Time
-	Data := t.Data
-	Eventname := t.Eventname
-
-	//select correct DB
-	conn.Do("SELECT", 0)
-
-	//REDIFY
-	_, err = conn.Do("HMSET", line, "Name", Name, "ID", ID, "Time", Time, "Data", Data, "Eventname", Eventname)
+	_, err := conn.Do("HMSET", msgIndex, "instrumentId", InstrumentId, "symbol", Symbol, "userId", UserId, "side", Side, "ordType", OrdType, "price", Price, "price_scale", Price_scale, "quantity", Quantity, "quantity_scale", Quantity_scale, "nonce", Nonce, "blockWaitAck", BlockWaitAck, "clOrdId", ClOrdId)
 
 	if err != nil {
-		logger(logFile, "error writing message to redis: "+err.Error())
+
+		logger("write_binary_message_to_redis", "#debug #debug (write_binary_message_to_redis): error writing message to redis: "+err.Error())
 		//record as a failure metric
 		recordFailureMetrics()
 		errCount++
 
 	} else {
-		logger(logFile, "wrote message to redis. count: "+strconv.Itoa(msgCount))
+
+		logger("write_binary_message_to_redis", "#debug (write_binary_message_to_redis): wrote message to redis. count: "+strconv.Itoa(msgCount))
 		//record as a success metric
-		recordSuccessMetrics()
 		msgCount++
+		recordSuccessMetrics()
 	}
 
 	return msgCount, errCount
@@ -1070,7 +1084,7 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 
 	streamAllCount++
 
-	logger(logFile, "DEBUG> (streamAll)[calling streamAll] Call Count: "+strconv.Itoa(streamAllCount))
+	logger("streamAll", "#debug (streamAll): call count: "+strconv.Itoa(streamAllCount))
 
 	//dump the extracted pulsar messages to REDIS
 	msgCount = 0
@@ -1083,7 +1097,7 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 		log.Fatal(err)
 	}
 
-	logger(logFile, "DEBUG> (streamAll) connecting to redis...")
+	logger("streamAll", "#debug (streamAll) connecting to redis to write replay messages")
 
 	// Now authenticate to Redis
 	response, err := conn.Do("AUTH", redisAuthPass)
@@ -1098,7 +1112,38 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 	//properly closed before exiting the main() function.
 	defer conn.Close()
 
-	logger(logFile, "DEBUG> (streamAll) looping through messages with reader.HasNext() ...")
+	//Make a first pass to collect/verify the message Ids ... this has performance impact
+	replayInputQueue := verify_message_stream(reader, startMsgIndex, stopMsgIndex)
+
+	//debug printout
+	fmt.Println("[#debug] verified workload list: ", replayInputQueue)
+
+	//Allocate workers to the input data
+	workCount := 0
+	namespace := "ragnarok"
+
+	//get the currently deployed worker pods in the producer pool
+	workers, cnt := get_worker_pool(workerType, namespace)
+
+	//delete the current work allocation table as it is now stale data
+	delete_stale_allocation_data(workers)
+
+	var replayInputQueueStrings []string
+
+	//convert to string format (performance hit!)
+	for item := range replayInputQueue {
+		replayInputQueueStrings = append(replayInputQueueStrings, strconv.FormatInt(replayInputQueue[item], 16))
+	}
+
+	//Assign message workload to worker pods
+	workAllocationMap := assign_message_workload_workers(workers, replayInputQueueStrings, cnt)
+
+	//Update the work allocation in a REDIS database
+	//This allows workers to pick their assigned tasks
+	update_work_allocation_table(workAllocationMap, workCount)
+
+	//update this global
+	scaleMax = workCount
 
 	for reader.HasNext() {
 
@@ -1111,7 +1156,7 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 		//can I access the details of the message?
 		msgIndex := msg.ID().EntryID()
 
-		logger(logFile, "DEBUG> (streamAll) Extracting message details ...")
+		logger("streamAll", "#debug (streamAll): extracting replay message details ...")
 		fmt.Printf("Read message id: -> %v <- ... => %#v\n", msgIndex, msg.ID())
 
 		//get the metadata as string for parsing
@@ -1120,53 +1165,35 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 		//get the actual message content
 		content := string(msg.Payload())
 
-		//Can i serialize into bytes? Yes
-		//logger(logFile, "DEBUG> (streamAll) Serializing message data ...")
-		//myBytes := msg.ID().Serialize()
-
-		//Can I store it somewhere? Perhaps a map ?  REDIS or even on disk in a file ?
-		//In other words: Can I write a byte[] slice to a file? Yes!
-
-		logger(logFile, "DEBUG> (streamAll) got message index...")
-
-		/*
-			if msgIndex == startMsgIndex {
-
-				fmt.Println("start read: ", msgIndex)
-				logger("streamAll", "DEBUG> (streamAll) Begin reading message stream at start point ...")
-				read = true
-			}
-
-			if msgIndex == stopMsgIndex+1 {
-				fmt.Println("stop reading: ", msgIndex)
-				logger("streamAll", "DEBUG> (streamAll) stop reading message stream at start point ...")
-				read = false
-			}
-		*/
+		logger("streamAll", "#debug (streamAll): got replay message index...")
 
 		//This is terrible. There has to be a better way to do this.Please replace once you've read:
 		//https://pulsar.apache.org/docs/en/2.2.0/concepts-messaging/
-		for i := startMsgIndex; i <= stopMsgIndex; i++ {
 
-			if msgIndex == i {
+		//modify to loop through the replayInputQueue instead
+		for i := range replayInputQueue {
 
-				logger("streamAll", "DEBUG> (streamAll) got message content for processing: "+content)
-				logger("streamAll", "DEBUG> (streamAll) got message metadata for processing: "+metadata)
+			if msgIndex == replayInputQueue[i] {
+
+				logger("streamAll", "#debug (streamAll): got replay message content for processing: "+content)
+				logger("streamAll", "#debug (streamAll): got replay message metadata for processing: "+metadata)
 
 				dataMap := parseJSONmessage(content)
 
 				for f := range dataMap {
-					fmt.Println("got struct field from map -> ", f, dataMap[f])
+					fmt.Println("#debug (streamAll): got struct field from map -> ", f, dataMap[f])
 				}
 
 				msgCount, errCount = write_binary_message_to_redis(msgCount, errCount, msgIndex, dataMap, conn)
 
 				if errCount == 0 {
+
 					readCount++
+
 				}
 
-				logger("streamAll", "number of topic messages processed: "+strconv.Itoa(msgCount)+" errors: "+strconv.Itoa(errCount))
-				logger("streamAll", "processing count = "+strconv.Itoa(readCount))
+				logger("streamAll", "#debug (streamAll): number of replay topic messages processed: "+strconv.Itoa(msgCount)+" errors: "+strconv.Itoa(errCount))
+				logger("streamAll", "#debug (streamAll): replay message processing count = "+strconv.Itoa(readCount))
 			}
 		}
 
@@ -1175,24 +1202,82 @@ func streamAll(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (m
 	return msgCount, errCount
 }
 
+func verify_message_stream(reader pulsar.Reader, startMsgIndex int64, stopMsgIndex int64) (inputQueue []int64) {
+
+	//make sure the messages we want are actually in the pulsar topic
+	//because there is a possibility not all the messages my be in the stream
+	var replayInputQueue []int64
+
+	var found bool = false
+
+	for reader.HasNext() {
+
+		msg, err := reader.Next(context.Background())
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//can I access the details of the message?
+		msgIndex := msg.ID().EntryID()
+
+		logger("streamAll", "#debug (streamAll): extracting replay message details ...")
+		fmt.Printf("#debug (verify_message_stream): got message id: -> %v <-\n", msgIndex)
+
+		//This is terrible. There has to be a better way to do this.Please replace once you've read:
+		//https://pulsar.apache.org/docs/en/2.2.0/concepts-messaging/
+
+		//modify to loop through the replayInputQueue instead
+		for i := startMsgIndex; i <= stopMsgIndex; i++ {
+
+			if msgIndex == i {
+
+				logger("streamAll", "#debug (streamAll): confirmed replay message index is there: "+strconv.FormatInt(msgIndex, 16))
+				found = true
+				replayInputQueue = append(replayInputQueue, msgIndex)
+
+			}
+
+		}
+
+		if found == false {
+			fmt.Println("couldn't find message index in the queueing system: " + strconv.FormatInt(msgIndex, 16) + " ")
+		}
+
+	}
+
+	return replayInputQueue
+}
+
 //custom parsing of JSON struct
 //Expected format as read from Pulsar topic: [{ "Name":"newOrder","ID":"14","Time":"1644469469070529888","Data":"loader-c7dc569f-8bkql","Eventname":"transactionRequest"}]
+//{"instrumentId":128,"symbol":"BTC/USDC[Infi]","userId":25097,"side":2,"ordType":2,"price":5173054,"price_scale":2,"quantity":61300,"quantity_scale":6,"nonce":1645495020701,"blockWaitAck":0,"clOrdId":""}
+
 func parseJSONmessage(theString string) map[string]string {
 
 	dMap := make(map[string]string)
 
-	theString = strings.Trim(theString, "[")
-	theString = strings.Trim(theString, "]")
+	//theString = strings.Trim(theString, "[")
+	//theString = strings.Trim(theString, "]")
 
-	data := Payload{}
+	data := Order{}
 
 	json.Unmarshal([]byte(theString), &data)
 
-	dMap["Name"] = string(data.Name)
-	dMap["ID"] = string(data.ID)
-	dMap["Time"] = string(data.Time)
-	dMap["Data"] = string(data.Data)
-	dMap["Eventname"] = string(data.Eventname)
+	dMap["instrumentId"] = fmt.Sprint(data.InstrumentId)
+	dMap["symbol"] = string(data.Symbol)
+	dMap["userId"] = fmt.Sprint(data.UserId)
+	dMap["side"] = fmt.Sprint(data.Side)
+	dMap["ordType"] = fmt.Sprint(data.OrdType)
+	dMap["price"] = fmt.Sprint(data.Price)
+	dMap["price_scale"] = fmt.Sprint(data.Price_scale)
+	dMap["quantity"] = fmt.Sprint(data.Quantity)
+	dMap["quantity_scale"] = fmt.Sprint(data.Quantity_scale)
+	dMap["nonce"] = fmt.Sprint(data.Nonce)
+	dMap["blockWaitAck"] = fmt.Sprint(data.BlockWaitAck)
+	dMap["clOrdId"] = string(data.ClOrdId)
+
+	fmt.Println("field extraction: ", dMap)
 
 	return dMap
 }

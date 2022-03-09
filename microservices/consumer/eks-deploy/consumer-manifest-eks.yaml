@@ -7,7 +7,7 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 10
+  replicas: 40
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,9 +22,19 @@ spec:
 #        agentpool: np003
       containers:
       - name: consumer
-        image: archbungle/load-consumer:pulsar-0.0.40
+        image: archbungle/load-consumer:pulsar-0.0.40d1
         imagePullPolicy: IfNotPresent
         env:
+        - name: API_BASE_URL
+          value: "trading-api.dexp-qa.com"
+        - name: TRADING_API_PASSWORD
+          value: "lolEx@20222@@"
+        - name: TRADING_API_USERNAME
+          value: "ngocdf1_qa_indi_7uxp@mailinator.com"
+        - name: TRADING_API_CLORID
+          value: "test-1-traiano45"
+        - name: BLOCKWAIT_ACK
+          value: "1"
         - name: NUM_JOBS
           value: "1"
         - name: NUM_WORKERS
