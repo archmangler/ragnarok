@@ -1,0 +1,140 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestor
+  namespace: ragnarok
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingestor
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingestor
+    spec:
+#      nodeSelector:
+#        agentpool: np001
+      serviceAccountName: internal-kubectl
+      containers:
+      - name: ingestor
+        image: archbungle/ingestor:ingestor-0.0.1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          value: "ragnarok"
+        - name: NUM_JOBS
+          value: "1"
+        - name: NUM_WORKERS
+          value: "1"
+        - name: DEFAULT_REPLICA_MAX
+          value: "10"
+        - name: PULSAR_BROKER_SERVICE_ADDRESS
+          value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+        - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
+          value: "sub002"
+        - name: MESSAGE_TOPIC
+          value: "ragnarok/transactions/requests"
+        - name: KAFKA_BROKER_SERVICE_ADDRESS
+          value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER1_ADDRESS
+          value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER2_ADDRESS
+          value: "kafka-1.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER3_ADDRESS
+          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: REDIS_ALLOCATOR_NS_INDEX
+          value: "11"
+        - name: REDIS_MASTER_ADDRESS
+          value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
+        - name: REDIS_REPLICA_ADDRESS
+          value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
+        - name: REDIS_PASS
+          value: "Yj7Oe21iHz"
+        - name: CONSUMER_GROUP
+          value: "cg001"
+        - name: KCAT_PATH
+          value: "/usr/bin/kcat"
+        - name: DATA_STAGING_DIRECTORY
+          value: "/staging"
+        - name: DATA_SOURCE_DIRECTORY
+          value: "/datastore"
+        - name: DATA_OUT_DIRECTORY
+          value: "/processed"
+        - name: BACKUP_DIRECTORY
+          value: "/backups"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/applogs"
+        - name: DEADLETTER_TOPIC
+          value: "deadLetter"
+        - name: METRICS_TOPIC
+          value: "metrics"      
+        - name: METRICS_PORT_NUMBER
+          value: "80"
+        - name: START_MESSAGE_SEQUENCE_ID
+          value: "1000"
+        - name: STOP_MESSAGE_SEQUENCE_ID
+          value: "1100"
+        - name: GRAFANA_DASHBOARD_URL
+          value: "http://13.67.56.239/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1" 
+        - name: ADMIN_PASSWORD
+          value: "somethingrandom"
+        ports:
+          - name: tcp-80
+            containerPort: 80
+      imagePullSecrets:
+        - name: ragnarok
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingestor-service
+  namespace: ragnarok
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ingestor
+  ports:
+    - name: tcp-80
+      port: 80
+      targetPort: 80
+      protocol: TCP
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: modify-pods-to-sa
+  namespace: ragnarok
+subjects:
+  - kind: ServiceAccount
+    name: internal-kubectl
+roleRef:
+  kind: Role
+  name: modify-pods
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: modify-pods
+  namespace: ragnarok
+rules:
+  - apiGroups: ["apps","extensions"]
+    resources:
+      - deployments
+    verbs:
+      - get
+      - watch
+      - list
+      - patch
+      - delete
+      - restart
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: internal-kubectl
+  namespace: ragnarok
