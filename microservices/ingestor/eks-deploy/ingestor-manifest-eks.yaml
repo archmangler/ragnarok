@@ -16,7 +16,7 @@ spec:
     spec:
 #      nodeSelector:
 #        agentpool: np001
-      serviceAccountName: internal-kubectl
+      serviceAccountName: eks-s3-access
       containers:
       - name: ingestor
         image: archbungle/ingestor:pulsar-0.0.5

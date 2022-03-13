@@ -213,6 +213,12 @@ function update_registry_access () {
   cd $mycwd
 }
 
+function deploy_source_data_storage () {
+  mycwd=`pwd`
+  cd storage/eks-deploy && ./deploy.sh && ./eksS3access.sh
+  cd $mycwd
+}
+
 #Deployment to Azure Cloud
 deploy_kubernetes_cluster
 create_namespaces
@@ -230,3 +236,4 @@ deploy_sink_service
 deploy_producer_service
 deploy_consumer_service
 deploy_loader_service
+deploy_source_data_storage

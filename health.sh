@@ -48,7 +48,7 @@ function check_pulsar_cluster() {
 }
 
 function check_redis_cluster() {
-    OUT=$(kubectl get pods -n ragnarok| egrep -i redis)
+    OUT=$(kubectl get pods -n redis| egrep -i redis)
     printf "$OUT"
 }
 
