@@ -1,61 +1,95 @@
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
-  version         = "17.24.0"
+  version         = "18.9.0"
   cluster_name    = local.cluster_name
-  cluster_version = "1.20"
-  subnets         = module.vpc.private_subnets
+  cluster_version = "1.21"
 
-  vpc_id = module.vpc.vpc_id
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
 
-  workers_group_defaults = {
-    root_volume_type = "gp2"
+
+  cluster_addons = {
+    coredns = {
+      resolve_conflicts = "OVERWRITE"
+    }
+    kube-proxy = {}
+    vpc-cni = {
+      resolve_conflicts = "OVERWRITE"
+    }
   }
 
-  worker_groups = [
-    {
-      name                          = "np001"
-      instance_type                 = "t2.medium"
-      additional_userdata           = "echo basic management functions"
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_one.id]
-      asg_desired_capacity          = 6
-      asg_max_size                  = 15
+
+  # EKS Managed Node Group(s)
+  eks_managed_node_group_defaults = {
+    ami_type               = "AL2_x86_64"
+    disk_size              = 50
+    instance_types         = ["t2.medium"] //","m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+    vpc_security_group_ids = [aws_security_group.worker_group_mgmt_one.id, aws_security_group.worker_group_mgmt_two.id]
+  }
+
+  eks_managed_node_groups = {
+    np001 = {
+      min_size       = 3
+      max_size       = 9
+      desired_size   = 6
+      instance_types = ["t2.medium"]
+      disk_size      = 50
+      capacity_type  = "ON_DEMAND"
       labels = {
-       nodegroup = "np001"
+        Environment = "poc"
+        function    = "management"
       }
-    },
-    {
-      name                          = "np002"
-      instance_type                 = "t2.medium"
-      additional_userdata           = "echo basic support functions"
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 6
-      asg_max_size                  = 15
-    },
-    {
-      name                          = "np003"
-      instance_type                 = "t2.medium"
-      additional_userdata           = "echo messaging bus pool"
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 6
-      asg_max_size                  = 15
-    },
-    {
-      name                          = "np004"
-      instance_type                 = "t2.medium"
-      additional_userdata           = "echo producer pool"
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 6
-      asg_max_size                  = 15
-    },
-    {
-      name                          = "np005"
-      instance_type                 = "t2.medium"
-      additional_userdata           = "echo consumer pool"
-      additional_security_group_ids = [aws_security_group.worker_group_mgmt_two.id]
-      asg_desired_capacity          = 6
-      asg_max_size                  = 15
-    },
-  ]
+    }
+    np002 = {
+      min_size       = 3
+      max_size       = 9
+      desired_size   = 6
+      instance_types = ["t2.medium"]
+      disk_size      = 50
+      capacity_type  = "ON_DEMAND"
+      labels = {
+        Environment = "poc"
+        function    = "producers"
+      }
+    }
+    np003 = {
+      min_size       = 3
+      max_size       = 9
+      desired_size   = 6
+      instance_types = ["t2.medium"]
+      disk_size      = 50
+      capacity_type  = "ON_DEMAND"
+      labels = {
+        Environment = "poc"
+        function    = "pulsar"
+      }
+    }
+    np004 = {
+      min_size       = 3
+      max_size       = 9
+      desired_size   = 6
+      instance_types = ["t2.medium"]
+      disk_size      = 50
+      capacity_type  = "ON_DEMAND"
+      labels = {
+        Environment = "poc"
+        function    = "consumers"
+      }
+    }
+    np005 = {
+      min_size       = 3
+      max_size       = 9
+      desired_size   = 6
+      disk_size      = 50
+      instance_types = ["t2.medium"]
+      capacity_type  = "ON_DEMAND"
+      labels = {
+        Environment = "poc"
+        function    = "storage"
+      }
+    }
+
+  }
 }
 
 data "aws_eks_cluster" "cluster" {

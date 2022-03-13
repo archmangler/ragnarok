@@ -41,6 +41,7 @@ function health_checks () {
 
 function install_metrics_service () {
   printf "metrics server ... coming soon ...\n"
+  kubectl apply -f metrics-server-components.yaml
 }
 
 #
@@ -50,3 +51,4 @@ eks_deploy
 health_checks
 get_kube_credentials
 health_checks
+install_metrics_service
