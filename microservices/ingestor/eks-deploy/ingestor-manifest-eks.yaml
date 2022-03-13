@@ -19,9 +19,11 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: ingestor
-        image: archbungle/ingestor:ingestor-0.0.1
+        image: archbungle/ingestor:pulsar-0.0.5
         imagePullPolicy: IfNotPresent
         env:
+        - name: S3_BUCKET_ADDRESS
+          value: "s3://tradedatasource"
         - name: NAMESPACE
           value: "ragnarok"
         - name: NUM_JOBS
@@ -56,14 +58,8 @@ spec:
           value: "cg001"
         - name: KCAT_PATH
           value: "/usr/bin/kcat"
-        - name: DATA_STAGING_DIRECTORY
-          value: "/staging"
         - name: DATA_SOURCE_DIRECTORY
           value: "/datastore"
-        - name: DATA_OUT_DIRECTORY
-          value: "/processed"
-        - name: BACKUP_DIRECTORY
-          value: "/backups"
         - name: LOCAL_LOGFILE_PATH
           value: "/applogs"
         - name: DEADLETTER_TOPIC
@@ -114,7 +110,6 @@ roleRef:
   kind: Role
   name: modify-pods
   apiGroup: rbac.authorization.k8s.io
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

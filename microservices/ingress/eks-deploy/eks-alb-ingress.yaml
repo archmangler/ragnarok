@@ -8,11 +8,6 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/proxy-connect-timeout: "360s"
-    alb.ingress.kubernetes.io/proxy-send-timeout: "360s"
-    alb.ingress.kubernetes.io/proxy-read-timeout: "360s"
-    alb.ingress.kubernetes.io/proxy-body-size: 100m
-    alb.ingress.kubernetes.io/client-body-buffer-size: 100m
 spec:
   rules:
   - http:
@@ -31,6 +26,13 @@ spec:
             name: sink-service
             port:
               number: 80
+      - path: /ingestor-admin
+        pathType: Prefix
+        backend:
+          service:
+            name: ingestor-service
+            port:
+              number: 80
       - path: /loader-admin
         pathType: Prefix
         backend:
@@ -43,6 +45,13 @@ spec:
         backend:
           service:
             name: loader-service
+            port:
+              number: 80
+      - path: /ingestorselected
+        pathType: Prefix
+        backend:
+          service:
+            name: ingestor-service
             port:
               number: 80
       - path: /

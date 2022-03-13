@@ -1,14 +1,14 @@
 #!/bin/bash
-#simple build script for loader image
+#simple build script for ingestor image
 #with registry push and versioning
 #Usage: 
 #   build push to remote reg: ./build.sh -n image_name -t tag -p yes
 #E.g:
-#./build.sh -n loader -t 0.0.1 -p true -d true 
+#./build.sh -n ingestor -t 0.0.1 -p true -d true 
 #   build locally, no push to reg
 
 registry_name="archbungle"
-repo_name="loader"
+repo_name="ingestor"
 base_cmd="docker build --tag"
 
 function build_image_local () {

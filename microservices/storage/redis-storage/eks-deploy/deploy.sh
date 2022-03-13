@@ -1,3 +1,3 @@
 #!/bin/bash
 #convenient helm install
-helm install ragnarok charts/redis --namespace ragnarok
+helm install ragnarok charts/redis --namespace redis

@@ -3,7 +3,8 @@
 #https://aws.amazon.com/premiumsupport/knowledge-center/troubleshoot-dependency-error-delete-vpc/
 #this is needed for now because terraform destroy of the EKS module not  clean.
 
-vpc="vpc-00e943247bc428623"
+vpc="vpc-059f772d1b8a863fb"
+
 region="ap-southeast-1"
 
 function list_all_dependents () {
@@ -34,6 +35,13 @@ function remove_network_interfaces () {
   done
 }
 
+function remove_nat_gw () {
+ for i in `aws ec2 describe-nat-gateways | jq -r '."NatGateways"| .[]' | jq -r '.NatGatewayId'`
+ do 
+   echo "$i" - $(aws ec2 delete-nat-gateway --nat-gateway-id $i  --region $region)
+ done
+}
+
 function remove_load_balancers () {
   #aws elb (v1) describe-load-balancers
    for i in `aws elb describe-load-balancers --region $region --query "LoadBalancerDescriptions[?VPCId=='$vpc']|[].LoadBalancerName" | jq -r '.[]'`
@@ -52,6 +60,26 @@ function remove_load_balancers () {
   done
 }
 
+function delete_ec2_instances () {
+  for i in `aws ec2 describe-instances --filters "Name=instance-type,Values=t2.medium" --query "Reservations[].Instances[].InstanceId" | jq -r '.[]'`
+  do
+   aws ec2 terminate-instances --instance-ids $i --region $region
+  done
+}
+
+function delete_asgs () {
+  for i in `aws autoscaling describe-auto-scaling-groups | jq -r '.[]|.[]|.AutoScalingGroupName'`
+    do echo "$i" - $(aws autoscaling delete-auto-scaling-group --auto-scaling-group-name $i --region $region)
+  done
+}
+
+function delete_launch_configurations () {
+  for i in `aws autoscaling describe-launch-configurations --region ap-southeast-1 | jq '."LaunchConfigurations"|.[]."LaunchConfigurationName"'|jq -r ''`
+  do
+    aws autoscaling delete-launch-configuration --launch-configuration-name $i --region $region
+  done
+}
+
 function fixup_state () {
  echo terraform state rm module.eks.kubernetes_config_map.aws_auth
  terraform state rm module.eks.kubernetes_config_map.aws_auth
@@ -59,8 +87,13 @@ function fixup_state () {
 
 #delete load balancer dependency
 list_all_dependents
+remove_nat_gw
+delete_ec2_instances
+delete_launch_configurations
+delete_asgs
 remove_security_groups
 remove_load_balancers
 remove_network_interfaces
+aws ec2 delete-vpc --vpc-id $vpc
 fixup_state
 list_all_dependents
