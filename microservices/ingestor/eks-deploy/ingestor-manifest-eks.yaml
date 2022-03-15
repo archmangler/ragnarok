@@ -19,11 +19,13 @@ spec:
       serviceAccountName: eks-s3-access
       containers:
       - name: ingestor
-        image: archbungle/ingestor:pulsar-0.0.5
+        image: archbungle/ingestor:pulsar-0.0.20
         imagePullPolicy: IfNotPresent
         env:
         - name: S3_BUCKET_ADDRESS
           value: "s3://tradedatasource"
+        - name: REMOTE_SOURCE_DIRECTORY
+          value: "/inputs" 
         - name: NAMESPACE
           value: "ragnarok"
         - name: NUM_JOBS
@@ -49,9 +51,9 @@ spec:
         - name: REDIS_ALLOCATOR_NS_INDEX
           value: "11"
         - name: REDIS_MASTER_ADDRESS
-          value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
+          value: "ragnarok-redis-master.redis.svc.cluster.local:6379"
         - name: REDIS_REPLICA_ADDRESS
-          value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
+          value: "ragnarok-redis-replicas.redis.svc.cluster.local:6379"
         - name: REDIS_PASS
           value: "Yj7Oe21iHz"
         - name: CONSUMER_GROUP
@@ -59,7 +61,7 @@ spec:
         - name: KCAT_PATH
           value: "/usr/bin/kcat"
         - name: DATA_SOURCE_DIRECTORY
-          value: "/datastore"
+          value: "/datastore/inputs"
         - name: LOCAL_LOGFILE_PATH
           value: "/applogs"
         - name: DEADLETTER_TOPIC

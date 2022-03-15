@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: modify-pods
+  namespace: ragnarok
+rules:
+  - apiGroups: ["","apps"]
+    resources:
+      - pods
+      - deployments
+      - statefulsets
+      - "statefulsets/scale"
+    verbs:
+      - get
+      - list
+      - delete
+      - scale
+      - create
+      - patch

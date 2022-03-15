@@ -1,0 +1,182 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: loadlogs-claim
+  namespace: ragnarok
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: azurefile
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loader
+  namespace: ragnarok
+spec:
+  selector:
+    matchLabels:
+      app: loader
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: loader
+    spec:
+#      nodeSelector:
+#        agentpool: np001
+      serviceAccountName: internal-kubectl
+      containers:
+      - name: loader
+        image: 605125156525.dkr.ecr.ap-southeast-1.amazonaws.com/loader:pulsar-0.0.54
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          value: "ragnarok"
+        - name: NUM_JOBS
+          value: "1"
+        - name: NUM_WORKERS
+          value: "1"
+        - name: PULSAR_BROKER_SERVICE_ADDRESS
+          value: "pulsar://pulsar-broker.pulsar.svc.cluster.local:6650"
+        - name: PULSAR_CONSUMER_SUBSCRIPTION_NAME
+          value: "sub002"
+        - name: MESSAGE_TOPIC
+          value: "ragnarok/transactions/requests"
+        - name: KAFKA_BROKER_SERVICE_ADDRESS
+          value: "kafka-cp-kafka.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER1_ADDRESS
+          value: "kafka-0.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER2_ADDRESS
+          value: "kafka-1.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: KAFKA_BROKER3_ADDRESS
+          value: "kafka-2.kafka-headless.kafka.svc.cluster.local:9092"
+        - name: REDIS_MASTER_ADDRESS
+          value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
+        - name: REDIS_REPLICA_ADDRESS
+          value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
+        - name: REDIS_PASS
+          value: "Yj7Oe21iHz"
+        - name: CONSUMER_GROUP
+          value: "cg001"
+        - name: KCAT_PATH
+          value: "/usr/bin/kcat"
+        - name: DATA_STAGING_DIRECTORY
+          value: "/staging"
+        - name: DATA_SOURCE_DIRECTORY
+          value: "/datastore"
+        - name: DATA_OUT_DIRECTORY
+          value: "/processed"
+        - name: BACKUP_DIRECTORY
+          value: "/backups"
+        - name: LOCAL_LOGFILE_PATH
+          value: "/applogs"
+        - name: DEADLETTER_TOPIC
+          value: "deadLetter"
+        - name: METRICS_TOPIC
+          value: "metrics"      
+        - name: METRICS_PORT_NUMBER
+          value: "80"
+        - name: START_MESSAGE_SEQUENCE_ID
+          value: "1000"
+        - name: STOP_MESSAGE_SEQUENCE_ID
+          value: "1100"
+        - name: GRAFANA_DASHBOARD_URL
+          value: "http://13.67.56.239/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1" 
+        - name: ADMIN_PASSWORD
+          value: "somethingrandom"
+        volumeMounts:
+          - name: loader-logs
+            mountPath: /applogs
+          - name: backups
+            mountPath: /backups
+        ports:
+          - name: tcp-80
+            containerPort: 80
+      volumes:
+        - name: loader-logs
+          persistentVolumeClaim:
+            claimName: loadlogs-claim
+        - name: backups
+          persistentVolumeClaim:
+            claimName: backups-claim
+      imagePullSecrets:
+        - name: ragnarok
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loader-service
+  namespace: ragnarok
+  labels:
+    app: loader-service
+spec:
+  type: ClusterIP
+  selector:
+    app: loader
+  ports:
+    - name: tcp-80
+      port: 80
+      targetPort: 80
+      protocol: TCP
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: modify-pods-to-sa
+  namespace: ragnarok
+subjects:
+  - kind: ServiceAccount
+    name: internal-kubectl
+roleRef:
+  kind: Role
+  name: modify-pods
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: modify-pods
+  namespace: ragnarok
+rules:
+  - apiGroups: ["apps","extensions"]
+    resources:
+      - deployments
+    verbs:
+      - get
+      - watch
+      - list
+      - patch
+      - delete
+      - restart
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: internal-kubectl
+  namespace: ragnarok
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loader-service
+  namespace: ragnarok
+  labels:
+    app: loader
+spec:
+  type: ClusterIP
+  selector:
+    app: loader
+  ports:
+    - name: tcp-80
+      port: 80
+      targetPort: 80
+      protocol: TCP
