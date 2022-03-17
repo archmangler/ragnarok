@@ -19,11 +19,13 @@ spec:
       serviceAccountName: internal-kubectl
       containers:
       - name: loader
-        image: archbungle/loader:pulsar-0.0.61d7
+        image: archbungle/loader:pulsar-0.0.61d13
         imagePullPolicy: IfNotPresent
         env:
         - name: NAMESPACE
           value: "ragnarok"
+        - name: INGESTOR_SERVICE_ADDRESS
+          value: "http://ingestor-service.ragnarok.svc.cluster.local"
         - name: NUM_JOBS
           value: "1"
         - name: NUM_WORKERS
@@ -47,9 +49,9 @@ spec:
         - name: REDIS_ALLOCATOR_NS_INDEX
           value: "11"
         - name: REDIS_MASTER_ADDRESS
-          value: "ragnarok-redis-master.ragnarok.svc.cluster.local:6379"
+          value: "ragnarok-redis-master.redis.svc.cluster.local:6379"
         - name: REDIS_REPLICA_ADDRESS
-          value: "ragnarok-redis-replicas.ragnarok.svc.cluster.local:6379"
+          value: "ragnarok-redis-replicas.redis.svc.cluster.local:6379"
         - name: REDIS_PASS
           value: "Yj7Oe21iHz"
         - name: CONSUMER_GROUP

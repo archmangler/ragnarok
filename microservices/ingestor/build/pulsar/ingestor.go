@@ -19,7 +19,7 @@ import (
 )
 
 //get running parameters from container environment
-var sourceDirectory string = os.Getenv("DATA_SOURCE_DIRECTORY")         // "/datastore/"
+var sourceDirectory string = os.Getenv("DATA_SOURCE_DIRECTORY")         // "/datastore/inputs"
 var s3bucketAddress string = os.Getenv("S3_BUCKET_ADDRESS")             //"s3://tradedatasource/inputs"
 var remoteSourceDir string = os.Getenv("REMOTE_SOURCE_DIRECTORY") + "/" //path under s3/efs/afs share: e.g "/inputs" (leading slash, no trailing slash)
 
@@ -240,6 +240,7 @@ func jsonToMap(theString string) map[string]string {
 func loadHistoricalData(sourceDir string, w http.ResponseWriter, r *http.Request) (string, error) {
 
 	status := "ok"
+	loadStatus = "started"
 	var err error
 	fCnt := 0
 	errCnt := 0

@@ -26,6 +26,20 @@ spec:
             name: sink-service
             port:
               number: 80
+      - path: /ingest-status
+        pathType: Prefix
+        backend:
+          service:
+            name: ingestor-service
+            port:
+              number: 80
+      - path: /ingest-start
+        pathType: Prefix
+        backend:
+          service:
+            name: ingestor-service
+            port:
+              number: 80
       - path: /ingestor-admin
         pathType: Prefix
         backend:

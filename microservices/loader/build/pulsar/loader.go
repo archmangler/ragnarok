@@ -26,10 +26,11 @@ import (
 )
 
 //get running parameters from container environment
-var namespace = "ragnarok"                                     //os.Getenv("POD_NAMESPACE")
-var grafana_dashboard_url = os.Getenv("GRAFANA_DASHBOARD_URL") // e.g http://192.168.1.4:32000/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1&refresh=10s
-var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))           //20
-var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))     //20
+var namespace = "ragnarok"                                                 //os.Getenv("POD_NAMESPACE")
+var grafana_dashboard_url = os.Getenv("GRAFANA_DASHBOARD_URL")             // e.g http://192.168.1.4:32000/d/AtqYwRA7k/transaction-matching-system-load-metrics?orgId=1&refresh=10s
+var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))                       //20
+var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))                 //20
+var ingestionServiceAddress string = os.Getenv("INGESTOR_SERVICE_ADDRESS") //ingestor-service.ragnarok.svc.cluster.local
 
 //pulsar connection details
 var brokerServiceAddress = os.Getenv("PULSAR_BROKER_SERVICE_ADDRESS") // e.g "pulsar://pulsar-mini-broker.pulsar.svc.cluster.local:6650"
@@ -64,8 +65,9 @@ var redisAuthPass string = os.Getenv("REDIS_PASS")
 //sometimes we operate on global variables ...
 var mutex = &sync.Mutex{}
 
-//map of task allocation to concurrent workers
+//Data loading variables
 var taskMap = make(map[string][]string)
+var purgeMap = make(map[string]string) //map of files to 'purge' after processing
 
 //{"instrumentId":128,"symbol":"BTC/USDC[Infi]","userId":25097,"side":2,"ordType":2,"price":5173054,"price_scale":2,"quantity":61300,"quantity_scale":6,"nonce":1645495020701,"blockWaitAck":0,"clOrdId":""}
 type Order struct {
@@ -291,12 +293,7 @@ func put_to_redis(msgId string, fileCount int, conn redis.Conn) (fc int) {
 	// example the key, followed by the various hash fields and values).
 
 	now := time.Now()
-	msgTimestamp := now.UnixNano()
-
-	//build the message body inputs for json
-
-	//_, err := conn.Do("HMSET", msgId, "Name", "newOrder", "ID", msgId, "Time", strconv.FormatInt(msgTimestamp, 10), "Data", hostname, "Eventname", "transactionRequest")
-
+	msgTimestamp := now.UnixNano() //build the message body inputs for json
 	//make up an imaginary trade
 	err := fabricate_order(msgTimestamp, msgId, conn)
 
@@ -745,6 +742,103 @@ func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence in
 
 func loadHistoricalData(w http.ResponseWriter, r *http.Request) (string, error) {
 
+	status := "pending"
+	var err error
+
+	w.Write([]byte("<br><html>Using historical order data for new load test ...</html>"))
+	logger(logFile, "Loading past captured orders ...")
+
+	//[x] 0. Read ingestor status: GET /ingest-status
+	resp, err := http.Get(ingestionServiceAddress + "/ingest-status")
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	status = string(body)
+	fmt.Println("Getting ingestor service status: ", status)
+
+	w.Write([]byte("<br><html>Getting ingestor service status: " + status + "</html>"))
+
+	//[x] 1. Trigger the loader service via the API (kubectl delete <pod-name>)
+	// GET /load-start
+	resp, err = http.Get(ingestionServiceAddress + "/ingest-start")
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	body, err = ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	status = string(body)
+	fmt.Println("triggered ingestion start: ", status)
+
+	//	[x] 2. Wait until it's status "ok" (until /ingest-status/ is not `pending`)
+	//	  [x] 2.1. Poll the status endpoint ("API": curl /load-status/) pending|started|completed
+
+	for {
+		resp, err = http.Get(ingestionServiceAddress + "/ingest-status")
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		body, err = ioutil.ReadAll(resp.Body)
+
+		if err != nil {
+			log.Fatalln(err)
+			break
+		}
+
+		status = string(body)
+		fmt.Println("Getting ingestor service status: ", status)
+
+		if status == "done" {
+			fmt.Println("finished ingesting input data: ", status)
+			w.Write([]byte("<br><html>finished ingesting input data: " + status + "</html>"))
+			break
+		} else {
+			w.Write([]byte("<br><html>ingestor status: " + status + "</html>"))
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+	/*
+	 [p] 3. Trigger the load-distribition process (distribute load among available workers)
+	  [p] 3.1 call function to reload producers
+	*/
+	fmt.Println("Getting load data from local storage ...")
+	w.Write([]byte("<br><html>Getting load data from local storage</html>"))
+
+	//load data from DB index 3 to index 0 in REDIS
+	//[] 3.2 load the data out
+	//[] 3.3 load the data into DB 0
+	bulkOrderLoad()
+
+	/*
+	  [] 4. Execute the load test ("ready to run load test") or give user a trigger load test button (???)
+	*/
+
+	fmt.Println("Starting load test ...")
+	w.Write([]byte("<br><html>Starting load test ... </html>"))
+
+	//report done
+	return status, err
+
+}
+
+func replayRecentData(w http.ResponseWriter, r *http.Request) (string, error) {
+
 	status := "ok"
 	var err error
 	fcnt := 0
@@ -818,8 +912,8 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if selection[parts[0]] == "LoadHistoricalData" {
-		status, err := loadHistoricalData(w, r)
+	if selection[parts[0]] == "ReplayRecentData" {
+		status, err := replayRecentData(w, r)
 
 		if err != nil {
 			w.Write([]byte("<html> Woops! ... " + err.Error() + "</html>"))
@@ -873,6 +967,19 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	if selection[parts[0]] == "LoadHistoricalData" {
+
+		w.Write([]byte("<html><h1>Creating input load data from topic sequence ... </h1></html>"))
+
+		status, err := loadHistoricalData(w, r)
+
+		if err != nil {
+			w.Write([]byte("<html> Woops! failed to trigger data ingestion ... " + err.Error() + "</html>"))
+		} else {
+			w.Write([]byte("<html> Ok! ingestion result: " + status + "</html>"))
+		}
+	}
+
 	html_content := `
 	<body>
 	<br>
@@ -903,14 +1010,17 @@ func (a adminPortal) handler(w http.ResponseWriter, r *http.Request) {
 
 	<form action="/selected?param=LoadSyntheticData" method="post">
            <input type="submit" name="LoadSyntheticData" value="load from synthetic data" style="padding:20px;">
-		   
 	<html style="font-family:verdana;">Start of sequence:</html><input type="text" name="start" >
 	<html style="font-family:verdana;">End of Sequence:</html><input type="text" name="stop" >
-
 	</form>
 
 	<form action="/selected?param=LoadHistoricalData" method="post">
            <input type="submit" name="LoadHistoricalData" value="load from historical data" style="padding:20px;">
+		   <br>
+	</form>
+
+	<form action="/selected?param=ReplayRecentData" method="post">
+           <input type="submit" name="ReplayRecentData" value="load recent queue data" style="padding:20px;">
 		   <br>
 	</form>
 
@@ -1322,6 +1432,357 @@ func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq int64, msgSto
 
 	return msgCount, errCount
 }
+
+//BEGIN: Data loading code
+
+func purgeProcessedRedis(conn redis.Conn) {
+
+	purgeCntr := 0
+
+	logger(logFile, "purging processed files ... "+strconv.Itoa(purgeCntr))
+
+	for input_id, _ := range purgeMap {
+
+		fmt.Println("dummy purging redis item ", input_id)
+
+		/*result, err := conn.Do("DEL", input_id)
+
+		  if err != nil {
+		          fmt.Printf("Failed removing original input data from redis: %s\n", err)
+		  } else {
+		          fmt.Printf("deleted input %s -> %s\n", input_id, result)
+		  }*/
+
+		purgeCntr++
+	}
+
+	logger(logFile, "purged processed files: "+strconv.Itoa(purgeCntr))
+}
+
+func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
+
+	msgPayload := ""
+	err = nil
+
+	//select correct DB
+	fmt.Println("select redis db: ", 3)
+	conn.Do("SELECT", 3)
+
+	//build the message body inputs for json
+	//      _, err = conn.Do("HMSET", msgIndex, "instrumentId", InstrumentId, "symbol", Symbol, "userId", UserId, "side", Side, "ordType", OrdType, "price", Price, "price_scale", Price_scale, "quantity", \
+	// Quantity, "quantity_scale", Quantity_scale, "nonce", Nonce, "blockWaitAck", BlockWaitAck, "clOrdId", ClOrdId)
+
+	InstrumentId, err := redis.String(conn.Do("HGET", input_id, "instrumentId"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Symbol, err := redis.String(conn.Do("HGET", input_id, "symbol"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	UserId, err := redis.String(conn.Do("HGET", input_id, "userId"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Side, err := redis.String(conn.Do("HGET", input_id, "side"))
+	if err != nil {
+		fmt.Println("oops, got thi:wqs: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	OrdType, err := redis.String(conn.Do("HGET", input_id, "ordType"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Price, err := redis.String(conn.Do("HGET", input_id, "price"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Price_scale, err := redis.String(conn.Do("HGET", input_id, "price_scale"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Quantity, err := redis.String(conn.Do("HGET", input_id, "quantity"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Quantity_scale, err := redis.String(conn.Do("HGET", input_id, "quantity_scale"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	Nonce, err := redis.String(conn.Do("HGET", input_id, "nonce"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	BlockWaitAck, err := redis.String(conn.Do("HGET", input_id, "blockWaitAck"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	ClOrdId, err := redis.String(conn.Do("HGET", input_id, "clOrdId"))
+	if err != nil {
+		fmt.Println("oops, got this: ", err, " skipping ", input_id)
+		return input_id, err
+	}
+
+	//pack the fields into json structure, this has performance impact
+	//but allows us to insert a tracing id into the data (try putting it into the metadata instead)
+	//We should marshall this json using a well defined struct but lets
+	//take the shortcut for now ...
+	msgPayload = `[{"instrumentId":"` + InstrumentId +
+		`","symbol":"` + Symbol +
+		`","userId":"` + UserId +
+		`","side":"` + Side +
+		`","ordType":"` + OrdType +
+		`","price":"` + Price +
+		`","price_scale":"` + Price_scale +
+		`","quantity":"` + Quantity +
+		`","quantity_scale":"` + Quantity_scale +
+		`","nonce":"` + Nonce +
+		`","blockWaitAck,":"` + BlockWaitAck +
+		`","clOrdId":"` + ClOrdId + `"}]`
+
+	fmt.Println("got msg from redis ->", msgPayload, "<-")
+
+	//get all the required data for the input id and return as json string
+	return msgPayload, err
+
+}
+
+func process_input_data_redis_concurrent(workerId int, jobId int) {
+
+	//error counter
+	errCount := 0
+	var tmpFileList []string
+
+	//debug
+	fmt.Println("(process_input_data_redis_concurrent) task map: ", taskMap)
+
+	//Get the unique key for the set of input tasks for this worker-job combination
+	taskID := strconv.Itoa(workerId) // can be keyed with: jobId + "-" + strconv.Itoa(jobNum)
+	tmpFileList = taskMap[taskID]
+
+	//Open Redis connection here again ...
+	conn, err := redis.Dial("tcp", redisWriteConnectionAddress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Now authenticate
+	response, err := conn.Do("AUTH", redisAuthPass)
+
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("redis auth response: ", response)
+	}
+
+	defer conn.Close()
+
+	fmt.Println("file list -> ", tmpFileList)
+
+	for fIndex := range tmpFileList {
+		input_id := tmpFileList[fIndex]
+
+		payload, err := readFromRedis(input_id, conn) //readFromRedis(input_id string, c conn.Redis) (ds string, err error)
+
+		fmt.Println("payload -> ", payload)
+
+		if err != nil {
+
+			errCount++
+
+			logMessage := "FAILED: " + strconv.Itoa(workerId) + " failed to read data for " + input_id + " error code: " + err.Error()
+
+			logger(logFile, logMessage)
+
+		} else {
+
+			logMessage := "OK: " + strconv.Itoa(workerId) + " read payload data for " + input_id
+			logger(logFile, logMessage)
+
+		}
+		fmt.Println("Read payload from Redis: ", payload)
+
+		//keep a record of files that should be moved to /processed after the workers stop
+		mutex.Lock()
+		purgeMap[input_id] = input_id
+		mutex.Unlock()
+
+		fmt.Println("completed job: ", jobId)
+
+	}
+
+	logger(logFile, "completing task"+strconv.Itoa(taskCount))
+
+	//it's a global variable being updated concurrently, so mutex lock ...
+	mutex.Lock()
+	taskCount++
+	mutex.Unlock()
+
+	logger(logFile, "completed task"+strconv.Itoa(taskCount))
+
+	//please fix this!!
+	if taskCount == numWorkers-1 || taskCount == numWorkers {
+		//delete (or move) all processed files from Redis to somewhere else
+		purgeProcessedRedis(conn)
+	}
+
+}
+
+func worker(id int, jobs <-chan int, results chan<- int) {
+	for j := range jobs {
+		process_input_data_redis_concurrent(id, j)
+		results <- numJobs //* numWorkers
+	}
+}
+
+func read_input_sources_redis() (inputs []string) {
+	var inputQueue []string
+
+	//Get from Redis
+	conn, err := redis.Dial("tcp", redisReadConnectionAddress)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Now authenticate
+	response, err := conn.Do("AUTH", redisAuthPass)
+
+	if err != nil {
+		panic(err)
+	} else {
+		fmt.Println("redis auth response: ", response)
+	}
+
+	defer conn.Close()
+
+	//GET ALL VALUES FROM DISCOVERED KEYS ONLY
+	//select correct DB
+	fmt.Println("select redis db: ", 3)
+	conn.Do("SELECT", 3)
+
+	data, err := redis.Strings(conn.Do("KEYS", "*"))
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, msgID := range data {
+
+		inputQueue = append(inputQueue, msgID)
+
+	}
+
+	//return the list of messages that exist in redis ...
+	return inputQueue
+}
+
+func loadIdAllocator(taskMap map[int][]string, numWorkers int) (m map[string][]string) {
+
+	tMap := make(map[string][]string)
+
+	element := 0
+
+	for i := 1; i <= numWorkers; i++ {
+
+		taskID := strconv.Itoa(i)
+		tMap[taskID] = taskMap[element]
+		element++
+
+	}
+
+	return tMap
+}
+
+func divide_and_conquer(inputs []string, numWorkers int, numJobs int) (m map[string][]string) {
+
+	tempMap := make(map[int][]string)
+
+	size := len(inputs) / numWorkers
+
+	var j int
+	var lc int = 0
+
+	for i := 0; i < len(inputs); i += size {
+
+		j += size
+
+		if j > len(inputs) {
+			j = len(inputs)
+		}
+
+		//just populate the map for now
+		//later assign worker-job pairs
+		tempMap[lc] = inputs[i:j]
+
+		lc++
+
+	}
+
+	tMap := loadIdAllocator(tempMap, numWorkers)
+
+	return tMap
+}
+
+func bulkOrderLoad() {
+
+	fmt.Println("loading raw order data for processing ...")
+
+	//inputQueue := read_input_sources(source_directory)            //Get the total list of input files in the source dirs
+	inputQueue := read_input_sources_redis()                      //Alternatively, get the total list of input data files from redis instead
+	taskMap = divide_and_conquer(inputQueue, numWorkers, numJobs) //get the allocation of workers to task-sets
+
+	//debug
+	fmt.Println("debug> generate taskmap: ", taskMap)
+
+	//Making use of Go Worker pools for concurrency within a pod here ...
+	jobs := make(chan int, numJobs)
+	results := make(chan int, numJobs)
+
+	for w := 1; w <= numWorkers; w++ {
+
+		go worker(w, jobs, results)
+
+	}
+
+	for j := 1; j <= numJobs; j++ {
+
+		jobs <- j
+
+	}
+
+	close(jobs)
+
+	for r := 0; r <= numJobs*numWorkers; r++ {
+
+		<-results
+
+	}
+}
+
+//END: Data loading code
 
 func main() {
 

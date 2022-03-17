@@ -3,7 +3,7 @@
 #https://aws.amazon.com/premiumsupport/knowledge-center/troubleshoot-dependency-error-delete-vpc/
 #this is needed for now because terraform destroy of the EKS module not  clean.
 
-vpc="vpc-0215e0e6c0e31f4f0"
+vpc="vpc-0dae0ceedc48b124c"
 region="ap-southeast-1"
 
 function list_all_dependents () {

@@ -89,33 +89,6 @@ func recordFailedMetrics() {
 	}()
 }
 
-/*
-
-//Payload message format example
-//NOTE:  This needs to be customised to the target application's needs
-
-[
-  {
-    "Name": "newOrder",
-    "ID": "8276",
-    "Time": "8276",
-    "Data": "new order",
-    "Eventname": "newOrder"
-  }
-]
-
-//In Consumer Pool:
-
-type Payload struct {
-	Name      string `json:"name"`
-	ID        string `json:"id"`
-	Time      string `json:"time"`
-	Data      string `json:"data"`
-	Eventname string `json:"eventname"`
-}
-
-*/
-
 //Customised to the use case
 type Order struct {
 	Name      string `json:"name"`
@@ -324,32 +297,6 @@ func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/* Example for JSON unmarshalling using a defined data struct:
-
-	    //Unmarshalling to the message structure
-		var order Order
-
-		err = json.Unmarshal(bodyBytes, &order)
-
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte(err.Error()))
-
-			errorCount++
-			recordFailedMetrics()
-
-			fmt.Println("ERROR in request: ", orderCount+1, " error: ", err)
-
-			return
-		}
-
-		order.ID = fmt.Sprintf("%d", time.Now().UnixNano())
-
-		h.Lock()
-		h.store[order.ID] = order
-		defer h.Unlock()
-	*/
-
 	orderCount++ //increment total incoming api requests
 
 	//create an output file name to store this message
@@ -365,43 +312,21 @@ func (h *orderHandlers) publish(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func newOrderHandlers() *orderHandlers {
-	return &orderHandlers{
-		store: map[string]Order{},
-	}
-}
+func idAllocator(taskMap map[int][]string, numWorkers int) (m map[string][]string) {
 
-type adminPortal struct {
-	password string
-}
+	tMap := make(map[string][]string)
 
-func newAdminPortal() *adminPortal {
+	element := 0
 
-	password := os.Getenv("ADMIN_PASSWORD")
+	for i := 1; i <= numWorkers; i++ {
 
-	if password == "" {
-		panic("required env var ADMIN_PASSWORD not set")
+		taskID := strconv.Itoa(i)
+		tMap[taskID] = taskMap[element]
+		element++
+
 	}
 
-	return &adminPortal{password: password}
-}
-
-func (a adminPortal) handler(w http.ResponseWriter, r *http.Request) {
-
-	//Basic API Auth Example
-	//Disabled for Testing
-	/*user, pass, ok := r.BasicAuth()
-	if !ok || user != "admin" || pass != a.password {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("401 - unauthorized"))
-		return
-	}
-	*/
-
-	w.Write([]byte("<html><h1>Anvil Management Portal</h1></html>"))
-	w.Write([]byte("<html> Successful requests: " + strconv.Itoa(orderCount) + "</html>"))
-	w.Write([]byte("<html> Failed requests: " + strconv.Itoa(errorCount) + "</html>"))
-
+	return tMap
 }
 
 func main() {
