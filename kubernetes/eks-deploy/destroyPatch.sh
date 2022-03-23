@@ -3,7 +3,7 @@
 #https://aws.amazon.com/premiumsupport/knowledge-center/troubleshoot-dependency-error-delete-vpc/
 #this is needed for now because terraform destroy of the EKS module not  clean.
 
-vpc="vpc-0dae0ceedc48b124c"
+vpc="vpc-0f270f1fc27f17930"
 region="ap-southeast-1"
 
 function list_all_dependents () {
@@ -29,20 +29,19 @@ function remove_security_groups () {
 }
 
 function remove_network_interfaces () {
-  for i in `aws ec2 describe-network-interfaces --region $region |  jq -r '."NetworkInterfaces"' | jq -r '.[] | .NetworkInterfaceId'`
+  for i in `aws ec2 describe-network-interfaces --region $region --filters "Name=vpc-id,Values=$vpc" |  jq -r '."NetworkInterfaces"' | jq -r '.[] | .NetworkInterfaceId'`
     do echo "$i" - $(aws ec2 delete-network-interface --network-interface-id $i --region $region)
   done
 }
 
 function remove_nat_gw () {
- for i in `aws ec2 describe-nat-gateways | jq -r '."NatGateways"| .[]' | jq -r '.NatGatewayId'`
+ for i in `aws ec2 describe-nat-gateways --region $region --filter "Name=vpc-id,Values=$vpc" | jq -r '."NatGateways"| .[]' | jq -r '.NatGatewayId'`
  do 
    echo "$i" - $(aws ec2 delete-nat-gateway --nat-gateway-id $i  --region $region)
  done
 }
 
 function remove_load_balancers () {
-  #aws elb (v1) describe-load-balancers
    for i in `aws elb describe-load-balancers --region $region --query "LoadBalancerDescriptions[?VPCId=='$vpc']|[].LoadBalancerName" | jq -r '.[]'`
    do 
      printf "will delete> $i"
@@ -60,22 +59,22 @@ function remove_load_balancers () {
 }
 
 function delete_ec2_instances () {
-  for i in `aws ec2 describe-instances --filters "Name=instance-type,Values=t2.medium" --query "Reservations[].Instances[].InstanceId" | jq -r '.[]'`
+  for i in `aws ec2 describe-instances --region $region --filters "Name=vpc-id,Values=$vpc" --query "Reservations[].Instances[].InstanceId" | jq -r '.[]'`
   do
    aws ec2 terminate-instances --instance-ids $i --region $region
   done
 }
 
 function delete_asgs () {
-  for i in `aws autoscaling describe-auto-scaling-groups | jq -r '.[]|.[]|.AutoScalingGroupName'`
+  for i in `aws autoscaling describe-auto-scaling-groups --region $region --filters "Name=vpc-id,Values=$vpc" | jq -r '.[]|.[]|.AutoScalingGroupName'`
     do echo "$i" - $(aws autoscaling delete-auto-scaling-group --auto-scaling-group-name $i --region $region)
   done
 }
 
 function delete_launch_configurations () {
-  for i in `aws autoscaling describe-launch-configurations --region ap-southeast-1 | jq '."LaunchConfigurations"|.[]."LaunchConfigurationName"'|jq -r ''`
+  for i in `aws autoscaling describe-launch-configurations --region $region | jq '."LaunchConfigurations"|.[]."LaunchConfigurationName"'|jq -r ''`
   do
-    aws autoscaling delete-launch-configuration --launch-configuration-name $i --region $region
+    aws autoscaling delete-launch-configuration --launch-configuration-name $i --filters "Name=vpc-id,Values=$vpc" --region $region
   done
 }
 
@@ -94,5 +93,5 @@ remove_security_groups
 remove_load_balancers
 remove_network_interfaces
 aws ec2 delete-vpc --vpc-id $vpc
-fixup_state
+#fixup_state
 list_all_dependents
