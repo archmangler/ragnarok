@@ -22,3 +22,24 @@ output "cluster_name" {
   description = "Kubernetes Cluster Name"
   value       = local.cluster_name
 }
+
+output "subnet_zero" {
+   description = "public subnet for bastion"
+   value =  module.vpc.private_subnets[0]
+}
+
+output "security_group_mgmt" {
+  description = "sg one"
+  value = aws_security_group.all_worker_mgmt.id
+}
+
+output "security_group_two" {
+  description = "sg two"
+  value = aws_security_group.worker_group_mgmt_two.id
+}
+
+output "security_group_one" {
+  description = "sg one"
+  value = aws_security_group.worker_group_mgmt_one.id
+}
+

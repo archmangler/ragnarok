@@ -11,8 +11,15 @@ variable "worker_group_mgmt_one_ingress_rules" {
       from_port   = 0 
       to_port     = 65434
       protocol    = "tcp"
-      cidr_block  = "0.0.0.0/0"
+      cidr_block  = "10.0.0.0/8"
       description = "elb requirement"
+    },
+    {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_block  = "10.0.0.0/8"
+      description = "core requirement"
     },
     {
       from_port   = 10250
@@ -41,6 +48,13 @@ variable "worker_group_mgmt_two_ingress_rules" {
       description = "elb requirement"
     },
     {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_block  = "10.0.0.0/8"
+      description = "core requirement"
+    },
+    {
       from_port   = 10250
       to_port     = 10250
       protocol    = "tcp"
@@ -67,6 +81,13 @@ variable "all_worker_mgmt_ingress_rules" {
       description = "elb requirement"
     },
     {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_block  = "10.0.0.0/8"
+      description = "core requirement"
+    },
+    {
       from_port   = 10250
       to_port     = 10250
       protocol    = "tcp"
@@ -91,6 +112,13 @@ variable "worker_group_mgmt_one_egress_rules" {
       protocol    = "tcp"
       cidr_block  = "0.0.0.0/0"
       description = "elb requirement"
+    },
+    {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_block  = "0.0.0.0/0"
+      description = "core requirement"
     },
     {
       from_port   = 10250
