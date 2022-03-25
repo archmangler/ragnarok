@@ -56,6 +56,7 @@ var errorCount int = 0
 var requestCount int = 0
 
 //Parsing and inspection of the Order
+/*
 type Payload struct {
 	InstrumentId   int    `json:"instrumentId"`
 	Symbol         string `json:"symbol"`
@@ -68,6 +69,22 @@ type Payload struct {
 	Quantity_scale int    `json:"quantity_scale"`
 	Nonce          int    `json:"nonce"`
 	BlockWaitAck   int    `json:"blockWaitAck "`
+	ClOrdId        string `json:"clOrdId"`
+}
+*/
+
+type Payload struct {
+	InstrumentId   string `json:"instrumentId"`
+	Symbol         string `json:"symbol"`
+	UserId         string `json:"userId"`
+	Side           string `json:"side"`
+	OrdType        string `json:"ordType"`
+	Price          string `json:"price"`
+	Price_scale    string `json:"price_scale"`
+	Quantity       string `json:"quantity"`
+	Quantity_scale string `json:"quantity_scale"`
+	Nonce          string `json:"nonce"`
+	BlockWaitAck   string `json:"blockWaitAck "`
 	ClOrdId        string `json:"clOrdId"`
 }
 
@@ -260,24 +277,26 @@ func parseJSONmessage(theString string) map[string]string {
 	theString = strings.Trim(theString, "[")
 	theString = strings.Trim(theString, "]")
 
+	fmt.Println("(parseJSONmessage) before marshalling: ", theString)
+
 	data := Payload{}
 
 	json.Unmarshal([]byte(theString), &data)
 
-	dMap["instrumentId"] = fmt.Sprint(data.InstrumentId)
-	dMap["symbol"] = string(data.Symbol)
-	dMap["userId"] = fmt.Sprint(data.UserId)
-	dMap["side"] = fmt.Sprint(data.Side)
-	dMap["ordType"] = fmt.Sprint(data.OrdType)
-	dMap["price"] = fmt.Sprint(data.Price)
-	dMap["price_scale"] = fmt.Sprint(data.Price_scale)
-	dMap["quantity"] = fmt.Sprint(data.Quantity)
-	dMap["quantity_scale"] = fmt.Sprint(data.Quantity_scale)
-	dMap["nonce"] = fmt.Sprint(data.Nonce)
-	dMap["blockWaitAck"] = fmt.Sprint(data.BlockWaitAck)
-	dMap["clOrdId"] = string(data.ClOrdId)
+	dMap["instrumentId"] = data.InstrumentId
+	dMap["symbol"] = data.Symbol
+	dMap["userId"] = data.UserId
+	dMap["side"] = data.Side
+	dMap["ordType"] = data.OrdType
+	dMap["price"] = data.Price
+	dMap["price_scale"] = data.Price_scale
+	dMap["quantity"] = data.Quantity
+	dMap["quantity_scale"] = data.Quantity_scale
+	dMap["nonce"] = data.Nonce
+	dMap["blockWaitAck"] = data.BlockWaitAck
+	dMap["clOrdId"] = data.ClOrdId
 
-	fmt.Println("field extraction: ", dMap)
+	fmt.Println("(parseJSONmessage) after marshalling: ", dMap)
 
 	return dMap
 }
@@ -340,20 +359,24 @@ func jsonToMap(theString string) map[string]string {
 	dMap := make(map[string]string)
 	data := Payload{}
 
+	fmt.Println("(parseJSONmessage) before marshalling: ", theString)
+
 	json.Unmarshal([]byte(theString), &data)
 
-	dMap["instrumentId"] = fmt.Sprint(data.InstrumentId)
-	dMap["symbol"] = string(data.Symbol)
-	dMap["userId"] = fmt.Sprint(data.UserId)
-	dMap["side"] = fmt.Sprint(data.Side)
-	dMap["ordType"] = fmt.Sprint(data.OrdType)
-	dMap["price"] = fmt.Sprint(data.Price)
-	dMap["price_scale"] = fmt.Sprint(data.Price_scale)
-	dMap["quantity"] = fmt.Sprint(data.Quantity)
-	dMap["quantity_scale"] = fmt.Sprint(data.Quantity_scale)
-	dMap["nonce"] = fmt.Sprint(data.Nonce)
-	dMap["blockWaitAck"] = fmt.Sprint(data.BlockWaitAck)
-	dMap["clOrdId"] = string(data.ClOrdId)
+	fmt.Println("(parseJSONmessage) after marshalling: ", theString)
+
+	dMap["instrumentId"] = data.InstrumentId
+	dMap["symbol"] = data.Symbol
+	dMap["userId"] = data.UserId
+	dMap["side"] = data.Side
+	dMap["ordType"] = data.OrdType
+	dMap["price"] = data.Price
+	dMap["price_scale"] = data.Price_scale
+	dMap["quantity"] = data.Quantity
+	dMap["quantity_scale"] = data.Quantity_scale
+	dMap["nonce"] = data.Nonce
+	dMap["blockWaitAck"] = data.BlockWaitAck
+	dMap["clOrdId"] = data.ClOrdId
 
 	fmt.Printf("debug %s\n", dMap)
 
@@ -450,6 +473,8 @@ func apiLogon(username string, password string, userID int, base_url string) (cr
 	responseBytes := []byte(params)
 	responseBody := bytes.NewBuffer(responseBytes)
 
+	credentials = make(map[string]string)
+
 	fmt.Println(responseBody)
 	resp, err := http.Post("https://"+base_url+"/api/logon", "application/json", responseBody)
 
@@ -469,13 +494,18 @@ func apiLogon(username string, password string, userID int, base_url string) (cr
 
 	sb := string(body)
 
-	fmt.Println(sb) //marshall into an authcredential struct
+	fmt.Println("#debug: getting request response body: ", sb) //marshall into an authcredential struct
 	loginData := authCredential{}
 	json.Unmarshal([]byte(sb), &loginData)
 
 	//extract tokens
+	fmt.Println("#debug: getting request ID: ", strconv.Itoa(loginData.Id))
 	credentials["request_id"] = strconv.Itoa(loginData.Id)
+
+	fmt.Println("#debug: getting api_key: ", loginData.RequestToken)
 	credentials["api_key"] = loginData.RequestToken
+
+	fmt.Println("#debug: getting secret_key: ", loginData.RequestSecret)
 	credentials["secret_key"] = loginData.RequestSecret
 
 	return credentials
