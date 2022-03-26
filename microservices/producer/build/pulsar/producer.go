@@ -339,6 +339,11 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
 		return input_id, err
+	} else {
+
+		//Set Blockwaitack if desired
+		BlockWaitAck = "1"
+
 	}
 
 	ClOrdId, err := redis.String(conn.Do("HGET", input_id, "clOrdId"))
@@ -505,10 +510,12 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 	//please fix this!!
 	if taskCount == numWorkers-1 || taskCount == numWorkers {
 		//delete (or move) all processed files from Redis to somewhere else
-		purgeProcessedRedis(conn)
+		//purgeProcessedRedis(conn)
+
+		fmt.Println("(process_input_data_redis_concurrent) skipping purge")
 
 		//then remove the work allocation entry in Redis
-		purgeProcessedMetadataRedis(conn)
+		//purgeProcessedMetadataRedis(conn)
 
 	}
 
@@ -617,8 +624,8 @@ func process_input_data_redis(workerId int) {
 	if taskCount == numWorkers-1 {
 		//delete (or move) all processed files from Redis to somewhere else
 		purgeProcessedRedis(conn)
+		fmt.Println("(process_input_data_redis) skipping purge redis ...")
 	}
-
 }
 
 //pull an untouched file from the source directory and process as file data to kafka

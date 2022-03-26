@@ -22,7 +22,7 @@ spec:
 #        agentpool: np003
       containers:
       - name: consumer
-        image: archbungle/load-consumer:pulsar-0.0.40d6
+        image: archbungle/load-consumer:pulsar-0.0.40d30
         imagePullPolicy: IfNotPresent
         env:
         - name: API_BASE_URL
@@ -35,6 +35,8 @@ spec:
           value: "test-1-traiano45"
         - name: BLOCKWAIT_ACK
           value: "1"
+        - name: TRADING_API_CLORID
+          value: "test-1-traiano45"
         - name: NUM_JOBS
           value: "1"
         - name: NUM_WORKERS

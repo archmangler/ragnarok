@@ -23,7 +23,7 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
         - name: S3_BUCKET_ADDRESS
-          value: "s3://tradedatasource"
+          value: "s3://eqnx-tradedata-source001"
         - name: REMOTE_SOURCE_DIRECTORY
           value: "/inputs" 
         - name: NAMESPACE

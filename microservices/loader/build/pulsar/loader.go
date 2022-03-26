@@ -85,6 +85,21 @@ type Order struct {
 	ClOrdId        string `json:"clOrdId"`
 }
 
+type OrderAlt struct {
+	InstrumentId   string `json:"instrumentId"`
+	Symbol         string `json:"symbol"`
+	UserId         string `json:"userId"`
+	Side           string `json:"side"`
+	OrdType        string `json:"ordType"`
+	Price          string `json:"price"`
+	Price_scale    string `json:"price_scale"`
+	Quantity       string `json:"quantity"`
+	Quantity_scale string `json:"quantity_scale"`
+	Nonce          string `json:"nonce"`
+	BlockWaitAck   string `json:"blockWaitAck "`
+	ClOrdId        string `json:"clOrdId"`
+}
+
 //Management Portal Component
 type adminPortal struct {
 	password string
@@ -208,7 +223,7 @@ func generate_input_sources(startSequence int, endSequence int) (inputs []string
 
 	//Generate filenames and ensure the list is randomised
 	var inputQueue []string
-	logger(logFile, "generating new file names")
+	logger("(generate_input_sources)", "generating new file names")
 
 	for f := startSequence; f <= endSequence; f++ {
 		//IF USING filestorage:		inputQueue = append(inputQueue, inputDir+strconv.Itoa(f))
@@ -219,7 +234,7 @@ func generate_input_sources(startSequence int, endSequence int) (inputs []string
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(inputQueue), func(i, j int) { inputQueue[i], inputQueue[j] = inputQueue[j], inputQueue[i] })
 
-	logger("generate_input_sources", "g	: "+strings.Join(inputQueue, ","))
+	logger("(generate_input_sources)", "	: "+strings.Join(inputQueue, ","))
 
 	return inputQueue
 }
@@ -353,7 +368,6 @@ func process_input_data(tmpFileList []string) int {
 	//where the actual task gets done
 	//To Store in file:
 	//fileCount = create_load_file(input_file, fIndex, fileCount)
-
 	//Alternatively: to store in Redis
 	// Establish a connection to the Redis server listening on port
 	// 6379 of the local machine. 6379 is the default port, so unless
@@ -696,6 +710,52 @@ func delete_stale_allocation_data(workerIdList []string) {
 	}
 }
 
+/*
+func loadHistoricalData(w http.ResponseWriter, r *http.Request, start_sequence int, end_sequence int) (string, error) {
+
+	logger(logFile, "Creating synthetic data for workload ...")
+
+	status := "ok"
+	var err error
+
+	w.Write([]byte("<html><h1>Loading Historical Data</h1></html>"))
+
+	//Generate input file list and distribute among workers
+	inputQueue := generate_input_sources(start_sequence, end_sequence) //Generate the total list of input files in the source dirs
+
+	metadata := strings.Join(inputQueue, ",")
+	logger(logFile, "[debug] generated new workload metadata: "+metadata)
+
+	//Allocate workers to the input data
+	workCount := 0
+	namespace := "ragnarok"
+
+	//get the currently deployed worker pods in the producer pool
+	workers, cnt := get_worker_pool(workerType, namespace)
+
+	//delete the current work allocation table as it is now stale data
+	delete_stale_allocation_data(workers)
+
+	//Assign message workload to worker pods
+	workAllocationMap := assign_message_workload_workers(workers, inputQueue, cnt)
+
+	//Update the work allocation in a REDIS database
+	update_work_allocation_table(workAllocationMap, workCount)
+
+	//update this global
+	scaleMax = workCount
+
+	w.Write([]byte("<br><html>updated worker allocation table for concurrent message processing.</html>"))
+
+	//Generate the actual message  data.
+	fcnt := process_input_data(inputQueue)
+
+	w.Write([]byte("<br><html>Generated new load test data: " + strconv.Itoa(fcnt) + " files." + "</html>"))
+
+	return status, err
+}
+*/
+
 func loadSyntheticData(w http.ResponseWriter, r *http.Request, start_sequence int, end_sequence int) (string, error) {
 
 	logger(logFile, "Creating synthetic data for workload ...")
@@ -821,7 +881,7 @@ func loadHistoricalData(w http.ResponseWriter, r *http.Request) (string, error) 
 	w.Write([]byte("<br><html>Getting load data from local storage</html>"))
 
 	//load data from DB index 3 to index 0 in REDIS
-	//[] 3.2 load the data out
+	//[x] 3.2 load the data out  of DB 3
 	//[] 3.3 load the data into DB 0
 	bulkOrderLoad()
 
@@ -969,7 +1029,7 @@ func (a adminPortal) selectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	if selection[parts[0]] == "LoadHistoricalData" {
 
-		w.Write([]byte("<html><h1>Creating input load data from topic sequence ... </h1></html>"))
+		w.Write([]byte("<html><h1>Creating input load data from legacy orders ... </h1></html>"))
 
 		status, err := loadHistoricalData(w, r)
 
@@ -1149,6 +1209,7 @@ func write_message_from_pulsar(msgCount int, errCount int, temp []string, line i
 func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int64, d map[string]string, conn redis.Conn) (int, int) {
 
 	logger("write_binary_message_to_redis", "#debug (write_binary_message_to_redis)")
+	fmt.Println("#debug (write_binary_message_to_redis) data map: ", d)
 
 	InstrumentId := d["instrumentId"]
 	Symbol := d["symbol"]
@@ -1370,6 +1431,8 @@ func parseJSONmessage(theString string) map[string]string {
 	//theString = strings.Trim(theString, "[")
 	//theString = strings.Trim(theString, "]")
 
+	fmt.Println("(parseJSONmessage) trimmed payload string ", theString)
+
 	data := Order{}
 
 	json.Unmarshal([]byte(theString), &data)
@@ -1388,6 +1451,38 @@ func parseJSONmessage(theString string) map[string]string {
 	dMap["clOrdId"] = string(data.ClOrdId)
 
 	fmt.Println("field extraction: ", dMap)
+
+	return dMap
+}
+
+func parseJSONmessageAlt(theString string) map[string]string {
+
+	dMap := make(map[string]string)
+
+	theString = strings.Trim(theString, "[")
+	theString = strings.Trim(theString, "]")
+
+	fmt.Println("(parseJSONmessageAlt) trimmed payload string ", theString)
+
+	data := OrderAlt{}
+	json.Unmarshal([]byte(theString), &data)
+
+	fmt.Println("(parseJSONmessageAlt) post marshalling payload: ", data)
+
+	dMap["instrumentId"] = data.InstrumentId
+	dMap["symbol"] = data.Symbol
+	dMap["userId"] = data.UserId
+	dMap["side"] = data.Side
+	dMap["ordType"] = data.OrdType
+	dMap["price"] = data.Price
+	dMap["price_scale"] = data.Price_scale
+	dMap["quantity"] = data.Quantity
+	dMap["quantity_scale"] = data.Quantity_scale
+	dMap["nonce"] = data.Nonce
+	dMap["blockWaitAck"] = data.BlockWaitAck
+	dMap["clOrdId"] = data.ClOrdId
+
+	fmt.Println("(parseJSONmessageAlt) field extraction: ", dMap)
 
 	return dMap
 }
@@ -1434,24 +1529,27 @@ func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq int64, msgSto
 }
 
 //BEGIN: Data loading code
-
 func purgeProcessedRedis(conn redis.Conn) {
+	//purge the originally loaded data once processed into db 0
 
 	purgeCntr := 0
 
 	logger(logFile, "purging processed files ... "+strconv.Itoa(purgeCntr))
 
+	//have to select the data staging DB (data input source)
+	result, err := conn.Do("SELECT", 3)
+
 	for input_id, _ := range purgeMap {
 
 		fmt.Println("dummy purging redis item ", input_id)
 
-		/*result, err := conn.Do("DEL", input_id)
+		result, err = conn.Do("DEL", input_id)
 
-		  if err != nil {
-		          fmt.Printf("Failed removing original input data from redis: %s\n", err)
-		  } else {
-		          fmt.Printf("deleted input %s -> %s\n", input_id, result)
-		  }*/
+		if err != nil {
+			fmt.Printf("Failed removing original input data from redis: %s\n", err)
+		} else {
+			fmt.Printf("deleted input %s -> %s\n", input_id, result)
+		}
 
 		purgeCntr++
 	}
@@ -1463,10 +1561,6 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 
 	msgPayload := ""
 	err = nil
-
-	//select correct DB
-	fmt.Println("select redis db: ", 3)
-	conn.Do("SELECT", 3)
 
 	//build the message body inputs for json
 	//      _, err = conn.Do("HMSET", msgIndex, "instrumentId", InstrumentId, "symbol", Symbol, "userId", UserId, "side", Side, "ordType", OrdType, "price", Price, "price_scale", Price_scale, "quantity", \
@@ -1558,7 +1652,7 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 		`","quantity":"` + Quantity +
 		`","quantity_scale":"` + Quantity_scale +
 		`","nonce":"` + Nonce +
-		`","blockWaitAck,":"` + BlockWaitAck +
+		`","blockWaitAck":"` + BlockWaitAck +
 		`","clOrdId":"` + ClOrdId + `"}]`
 
 	fmt.Println("got msg from redis ->", msgPayload, "<-")
@@ -1572,7 +1666,14 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 	//error counter
 	errCount := 0
+	msgCount := 0
+
 	var tmpFileList []string
+	var allData = map[int64]map[string]string{}
+
+	//Allocate workers to the input data
+	var workCount int = 0
+	var namespace string = "ragnarok"
 
 	//debug
 	fmt.Println("(process_input_data_redis_concurrent) task map: ", taskMap)
@@ -1599,52 +1700,104 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 
 	defer conn.Close()
 
-	fmt.Println("file list -> ", tmpFileList)
+	//SELECT redis DB 3 to get the raw order data
+	fmt.Println("(process_input_data_redis_concurrent) select redis db: ", 3)
+	conn.Do("SELECT", 3)
+
+	fmt.Println("(process_input_data_redis_concurrent) file list -> ", tmpFileList)
 
 	for fIndex := range tmpFileList {
 		input_id := tmpFileList[fIndex]
 
 		payload, err := readFromRedis(input_id, conn) //readFromRedis(input_id string, c conn.Redis) (ds string, err error)
 
-		fmt.Println("payload -> ", payload)
+		fmt.Println("(process_input_data_redis_concurrent) payload -> ", payload)
 
 		if err != nil {
 
 			errCount++
 
-			logMessage := "FAILED: " + strconv.Itoa(workerId) + " failed to read data for " + input_id + " error code: " + err.Error()
+			logMessage := "(process_input_data_redis_concurrent) FAILED: " + strconv.Itoa(workerId) + " failed to read data for " + input_id + " error code: " + err.Error()
 
-			logger(logFile, logMessage)
+			logger("(process_input_data_redis_concurrent)", logMessage)
 
 		} else {
 
-			logMessage := "OK: " + strconv.Itoa(workerId) + " read payload data for " + input_id
-			logger(logFile, logMessage)
+			logMessage := "(process_input_data_redis_concurrent) OK: " + strconv.Itoa(workerId) + " read payload data for " + input_id
+			logger("(process_input_data_redis_concurrent)", logMessage)
 
+			fmt.Println("(process_input_data_redis_concurrent) Read payload from Redis: ", payload)
+
+			//write the actual payload to redis db 0
+			dataMap := parseJSONmessageAlt(payload)
+			allData[int64(fIndex)] = dataMap
+
+			//debug printout
+			for f := range dataMap {
+				fmt.Println("#debug (process_input_data_redis_concurrent): got struct field from map -> ", f, dataMap[f])
+			}
+
+			//keep a record of files that should be moved to /processed after the workers stop
+			mutex.Lock()
+			purgeMap[input_id] = input_id
+			mutex.Unlock()
+
+			fmt.Println("(process_input_data_redis_concurrent) completed job: ", jobId)
 		}
-		fmt.Println("Read payload from Redis: ", payload)
-
-		//keep a record of files that should be moved to /processed after the workers stop
-		mutex.Lock()
-		purgeMap[input_id] = input_id
-		mutex.Unlock()
-
-		fmt.Println("completed job: ", jobId)
 
 	}
 
-	logger(logFile, "completing task"+strconv.Itoa(taskCount))
+	//#debug
+	fmt.Println("(process_input_data_redis_concurrent): done building purge map")
+
+	//write data to redis db 0 for processing by producers
+	fmt.Println("(process_input_data_redis_concurrent) select redis db: ", 0)
+	conn.Do("SELECT", 0)
+
+	for msgIndex, _ := range allData {
+		fmt.Println("(process_input_data_redis_concurrent) loading this data to redis db 0: key -> ", msgIndex, " map -> ", allData[msgIndex])
+		msgCount, errCount = write_binary_message_to_redis(msgCount, errCount, msgIndex, allData[msgIndex], conn)
+		fmt.Println("(process_input_data_redis_concurrent) loaded data into redis db 0. message count: ", msgCount, " errors: ", errCount)
+	}
+
+	logger("(process_input_data_redis_concurrent)", "completing worker task "+strconv.Itoa(taskCount))
+
+	//allocate the messages among the available worker pods
+	startSequence := 1
+	endSequence := msgCount
+
+	//Generate input file list and distribute among workers
+	inputQueue := generate_input_sources(startSequence, endSequence) //Generate the total list of input files in the source dirs
+
+	metadata := strings.Join(inputQueue, ",")
+	logger(logFile, "[debug] generated new workload metadata: "+metadata)
+
+	//get the currently deployed worker pods in the producer pool
+	workers, cnt := get_worker_pool(workerType, namespace)
+
+	//delete the current work allocation table as it is now stale data
+	delete_stale_allocation_data(workers)
+
+	//Assign message workload to worker pods
+	workAllocationMap := assign_message_workload_workers(workers, inputQueue, cnt)
+
+	//Update the work allocation in a REDIS database
+	update_work_allocation_table(workAllocationMap, workCount)
+
+	//update this global
+	scaleMax = workCount
 
 	//it's a global variable being updated concurrently, so mutex lock ...
 	mutex.Lock()
 	taskCount++
 	mutex.Unlock()
 
-	logger(logFile, "completed task"+strconv.Itoa(taskCount))
+	logger("(process_input_data_redis_concurrent)", "completed worker task "+strconv.Itoa(taskCount))
 
 	//please fix this!!
 	if taskCount == numWorkers-1 || taskCount == numWorkers {
-		//delete (or move) all processed files from Redis to somewhere else
+		//delete (or move) all processed files in DB  3
+		//from Redis to somewhere else once they've been processed
 		purgeProcessedRedis(conn)
 	}
 

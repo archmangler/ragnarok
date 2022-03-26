@@ -55,24 +55,6 @@ var account int = 0                                            //updated with th
 var errorCount int = 0
 var requestCount int = 0
 
-//Parsing and inspection of the Order
-/*
-type Payload struct {
-	InstrumentId   int    `json:"instrumentId"`
-	Symbol         string `json:"symbol"`
-	UserId         int    `json:"userId"`
-	Side           int    `json:"side"`
-	OrdType        int    `json:"ordType"`
-	Price          int    `json:"price"`
-	Price_scale    int    `json:"price_scale"`
-	Quantity       int    `json:"quantity"`
-	Quantity_scale int    `json:"quantity_scale"`
-	Nonce          int    `json:"nonce"`
-	BlockWaitAck   int    `json:"blockWaitAck "`
-	ClOrdId        string `json:"clOrdId"`
-}
-*/
-
 type Payload struct {
 	InstrumentId   string `json:"instrumentId"`
 	Symbol         string `json:"symbol"`
@@ -99,7 +81,7 @@ type authCredential struct {
 //are inefficient
 func sign_api_request(apiSecret string, requestBody string) (s string) {
 	//This is a very nasty workaround with potentially negative performance implications
-	out, err := exec.Command("python3", "use.py", apiSecret, requestBody).Output()
+	out, err := exec.Command("/usr/bin/python3", "use.py", apiSecret, requestBody).Output()
 
 	if err != nil {
 		fmt.Println("sign_api_request error!", err)
@@ -109,66 +91,66 @@ func sign_api_request(apiSecret string, requestBody string) (s string) {
 	return s
 }
 
-//4. build up the request body
+//4. Build up the request body
 func create_order(secret_key string, api_key string, base_url string, orderParameters map[string]string) {
 
 	//Request body for POSTing a Trade
 	params, err := json.Marshal(orderParameters)
 
 	if err != nil {
-		fmt.Println("failed to jsonify: ", params)
+		fmt.Println("(create_order) failed to jsonify: ", params)
 	}
 
 	requestString := string(params)
 
 	//debug
-	fmt.Println("request parameters -> ", requestString)
+	fmt.Println("(create_order) request parameters -> ", requestString)
 	sig := sign_api_request(secret_key, requestString)
 
 	//debug
-	fmt.Println("request signature -> ", sig)
+	fmt.Println("(create_order) request signature -> ", sig)
 
 	trade_request_url := "https://" + base_url + "/api/order"
 
 	//Set the client connection custom properties
-	fmt.Println("setting client connection properties.")
+	fmt.Println("(create_order) setting client connection properties.")
 	client := http.Client{}
 
 	//POST body
-	fmt.Println("creating new POST request: ")
+	fmt.Println("(create_order) creating new POST request: ")
 	request, err := http.NewRequest("POST", trade_request_url, bytes.NewBuffer(params))
 
 	//set some headers
-	fmt.Println("setting request headers ...")
+	fmt.Println("(create_order) setting request headers ...")
 	request.Header.Set("Content-type", "application/json")
 	request.Header.Set("requestToken", api_key)
 	request.Header.Set("signature", sig)
 
 	if err != nil {
-		fmt.Println("error after header addition: ")
+		fmt.Println("(create_order) error after header addition: ")
 		log.Fatalln(err)
 	}
 
-	fmt.Println("executing the POST ...")
+	fmt.Println("(create_order) executing the POST to ", trade_request_url)
 	resp, err := client.Do(request)
 
 	if err != nil {
-		fmt.Println("error after executing POST: ")
+		fmt.Println("(create_order) error after executing POST: ")
 		log.Fatalln(err)
 	}
 
 	defer resp.Body.Close()
-	fmt.Println("reading response body ...")
+	fmt.Println("(create_order) reading response body ...")
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		fmt.Println("error reading response body: ")
+		fmt.Println("(create_order) error reading response body: ")
 		log.Fatalln(err)
 	}
 
 	sb := string(body)
 
-	fmt.Println("got response output: ", sb)
+	fmt.Println("(create_order) got response output: ", sb)
 }
 
 //Instrumentation and metrics
@@ -254,17 +236,21 @@ func check_errors(e error, jobId int) {
 func updateOrder(order map[string]string, account int, blockWaitAck int, userId int, clOrdId string) (Order map[string]string) {
 
 	//replace the userId with the currently active user
-	Order = order
+	//Order = order
+	fmt.Println("(updateOrder): updating this map: ", order)
 
 	//debug
-	fmt.Println("debug (updateOrder): ", userId, clOrdId, blockWaitAck, account)
+	fmt.Println("(updateOrder): updating these fields: ", userId, clOrdId, blockWaitAck, account)
 
-	Order["clOrdId"] = clOrdId
-	Order["userId"] = strconv.Itoa(userId)
-	Order["blockWaitAck"] = strconv.Itoa(blockWaitAck)
-	Order["account"] = strconv.Itoa(account)
+	order["clOrdId"] = clOrdId
+	order["userId"] = strconv.Itoa(userId)
+	order["blockWaitAck"] = strconv.Itoa(blockWaitAck)
+	order["account"] = strconv.Itoa(account)
 
-	return Order
+	//debug
+	fmt.Println("(updateOrder) after updating map: ", order)
+
+	return order
 }
 
 //custom parsing of JSON struct
@@ -272,31 +258,39 @@ func updateOrder(order map[string]string, account int, blockWaitAck int, userId 
 //[{ "Name":"newOrder","ID":"14","Time":"1644469469070529888","Data":"loader-c7dc569f-8bkql","Eventname":"transactionRequest"}]
 func parseJSONmessage(theString string) map[string]string {
 
-	dMap := make(map[string]string)
+	var dMap map[string]string
+
+	fmt.Println("(parseJSONmessage) before stripping:   BEGIN->", theString, "<-END")
 
 	theString = strings.Trim(theString, "[")
 	theString = strings.Trim(theString, "]")
 
-	fmt.Println("(parseJSONmessage) before marshalling: ", theString)
+	fmt.Println("(parseJSONmessage) after stripping:    BEGIN->", theString, "<-END")
+	fmt.Println("(parseJSONmessage) before marshalling: BEGIN->", theString, "<-END")
 
-	data := Payload{}
+	//data := Payload{}
 
-	json.Unmarshal([]byte(theString), &data)
+	//marshalling issue
+	json.Unmarshal([]byte(theString), &dMap)
 
-	dMap["instrumentId"] = data.InstrumentId
-	dMap["symbol"] = data.Symbol
-	dMap["userId"] = data.UserId
-	dMap["side"] = data.Side
-	dMap["ordType"] = data.OrdType
-	dMap["price"] = data.Price
-	dMap["price_scale"] = data.Price_scale
-	dMap["quantity"] = data.Quantity
-	dMap["quantity_scale"] = data.Quantity_scale
-	dMap["nonce"] = data.Nonce
-	dMap["blockWaitAck"] = data.BlockWaitAck
-	dMap["clOrdId"] = data.ClOrdId
+	//fmt.Println("(parseJSONmessage) after marshalling: ", dMap)
 
-	fmt.Println("(parseJSONmessage) after marshalling: ", dMap)
+	/*
+		dMap["instrumentId"] = data.InstrumentId
+		dMap["symbol"] = data.Symbol
+		dMap["userId"] = data.UserId
+		dMap["side"] = data.Side
+		dMap["ordType"] = data.OrdType
+		dMap["price"] = data.Price
+		dMap["price_scale"] = data.Price_scale
+		dMap["quantity"] = data.Quantity
+		dMap["quantity_scale"] = data.Quantity_scale
+		dMap["nonce"] = data.Nonce
+		dMap["blockWaitAck"] = data.BlockWaitAck
+		dMap["clOrdId"] = data.ClOrdId
+	*/
+
+	fmt.Println("(parseJSONmessage) after marshaling: ", dMap)
 
 	return dMap
 }
@@ -319,10 +313,12 @@ func data_check(message string) (err error) {
 	dMap := parseJSONmessage(message)
 
 	for k := range dMap {
-		if len(dMap[k]) > 0 {
-			fmt.Println("checking payload message field (ok): ", k, " -> ", dMap[k])
-		} else {
-			return errors.New("empty field in message! ... " + k)
+		if k != "clOrdId" {
+			if len(dMap[k]) > 0 {
+				fmt.Println("(data_check) checking payload message field (ok): ", k, " -> ", dMap[k])
+			} else {
+				return errors.New("(data_check) empty field in message! ... " + k)
+			}
 		}
 	}
 
@@ -359,11 +355,19 @@ func jsonToMap(theString string) map[string]string {
 	dMap := make(map[string]string)
 	data := Payload{}
 
-	fmt.Println("(parseJSONmessage) before marshalling: ", theString)
+	fmt.Println("(jsonToMap) before stripping:   BEGIN->", theString, "<-END")
+	theString = strings.Trim(theString, "[")
+	theString = strings.Trim(theString, "]")
+	fmt.Println("(jsonToMap) after stripping:    BEGIN->", theString, "<-END")
 
+	fmt.Println("(jsonToMap) (parseJSONmessage) before marshalling: ", theString)
+
+	fmt.Println("(jsonToMap) (parseJSONmessage) before marshalling - convert to byte: ", []byte(theString))
+
+	//The Problem is Here
 	json.Unmarshal([]byte(theString), &data)
 
-	fmt.Println("(parseJSONmessage) after marshalling: ", theString)
+	fmt.Println("(jsonToMap) (parseJSONmessage) after marshalling: ", data)
 
 	dMap["instrumentId"] = data.InstrumentId
 	dMap["symbol"] = data.Symbol
@@ -378,7 +382,7 @@ func jsonToMap(theString string) map[string]string {
 	dMap["blockWaitAck"] = data.BlockWaitAck
 	dMap["clOrdId"] = data.ClOrdId
 
-	fmt.Printf("debug %s\n", dMap)
+	fmt.Printf("(jsonToMap) returning map %s\n", dMap)
 
 	return dMap
 }
@@ -389,8 +393,8 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 	// the groupID identifies the consumer and prevents
 	// it from receiving duplicate messages
 
-	logMessage := "worker " + strconv.Itoa(id) + "consuming from topic " + topic
-	logger("consume_payload_data", logMessage)
+	logMessage := "(consume_payload_data) worker " + strconv.Itoa(id) + " consuming from topic " + topic
+	logger("(consume_payload_data)", logMessage)
 
 	consumer, err := client.Subscribe(pulsar.ConsumerOptions{
 		Topic:            topic,
@@ -413,7 +417,7 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 			log.Fatal(err)
 		}
 
-		fmt.Printf("Received message msgId: %#v -- content: '%s'\n",
+		fmt.Printf("(consume_payload_data) Received message msgId: %#v -- content: '%s'\n",
 			msg.ID(), string(msg.Payload()))
 
 		//message acknowledgment
@@ -426,8 +430,8 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 
 		if err != nil {
 
-			logMessage := "ERROR: empty message (skipping): " + message
-			logger("consume_payload_data", logMessage)
+			logMessage := "(consume_payload_data) ERROR: empty message (skipping): " + message
+			logger("(consume_payload_data)", logMessage)
 
 		} else {
 
@@ -435,21 +439,23 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 
 			if err != nil {
 
+				fmt.Println("(consume_payload_data) data check error: ", err)
 				//incremement error metric
 				errorCount += 1
-				logMessage := "Error Count: " + strconv.Itoa(errorCount)
-				logger("consume_payload_data", logMessage)
+				logMessage := "(consume_payload_data) Error Count: " + strconv.Itoa(errorCount)
+				logger("(consume_payload_data)", logMessage)
 
 			} else {
 
 				//sign the body and create an order (order map[string]string )
-
+				fmt.Println("(consume_payload_data) converting this json string to map: ", message)
 				order := jsonToMap(message) //convert the json string to a map[string]string to access the order elements
 
-				//updateOrder(order map[string]string, account int, blockWaitAck int, userId int, clOrdId string) (o map[string]string)
+				fmt.Println("(consume_payload_data) json converted map: ", order)
+
 				order = updateOrder(order, account, blockWaitAck, userID, clOrdId)
 
-				fmt.Println("debug: updated order details: ", order)
+				fmt.Println("(consume_payload_data) updated order details: ", order)
 
 				create_order(credentials["secret_key"], credentials["api_key"], base_url, order)
 
@@ -531,7 +537,7 @@ func main() {
 		})
 
 	if err != nil {
-		log.Fatalf("Could not instantiate Pulsar client: %v", err)
+		log.Fatalf("(main) Could not instantiate Pulsar client: %v", err)
 	}
 
 	defer client.Close()
@@ -542,11 +548,15 @@ func main() {
 		err := http.ListenAndServe(port_specifier, nil)
 
 		if err != nil {
-			fmt.Println("Could not start the metrics endpoint: ", err)
+			fmt.Println("(main) Could not start the metrics endpoint: ", err)
+		} else {
+			fmt.Println("(main) done setting up metrics endpoint: ")
 		}
 	}()
 
 	//using a simple, single threaded loop - sequential consumption
+	fmt.Println("(main) contemplating running main worker loop ...")
 	dumb_worker(1, client, credentials)
+	fmt.Println("(main) done running main worker loop ...")
 
 }

@@ -5,6 +5,7 @@ WORKDIR /app
 
 RUN apk add gcc
 RUN apk add musl-dev
+RUN apk add python3
 
 COPY go.mod ./
 COPY go.sum ./
