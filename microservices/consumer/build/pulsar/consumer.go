@@ -92,28 +92,28 @@ func sign_api_request(apiSecret string, requestBody string) (s string) {
 }
 
 //4. Build up the request body
-func create_order(secret_key string, api_key string, base_url string, orderParameters map[string]string) {
+func create_order(secret_key string, api_key string, base_url string, orderParameters map[string]string, orderIndex int) {
 
 	//Request body for POSTing a Trade
 	params, err := json.Marshal(orderParameters)
 
 	if err != nil {
-		fmt.Println("(create_order) failed to jsonify: ", params)
+		fmt.Println("(create_order) failed to jsonify: ", "(", orderIndex, ")", params)
 	}
 
 	requestString := string(params)
 
 	//debug
-	fmt.Println("(create_order) request parameters -> ", requestString)
+	fmt.Println("(create_order) request parameters -> ", "(", orderIndex, ")", requestString)
 	sig := sign_api_request(secret_key, requestString)
 
 	//debug
-	fmt.Println("(create_order) request signature -> ", sig)
+	fmt.Println("(create_order) request signature -> ", "(", orderIndex, ")", sig)
 
 	trade_request_url := "https://" + base_url + "/api/order"
 
 	//Set the client connection custom properties
-	fmt.Println("(create_order) setting client connection properties.")
+	fmt.Println("(create_order) setting client connection properties.", "(", orderIndex, ")")
 	client := http.Client{}
 
 	//POST body
@@ -127,30 +127,37 @@ func create_order(secret_key string, api_key string, base_url string, orderParam
 	request.Header.Set("signature", sig)
 
 	if err != nil {
-		fmt.Println("(create_order) error after header addition: ")
+		fmt.Println("(create_order) error after header addition: ", "(", orderIndex, ")")
 		log.Fatalln(err)
 	}
 
-	fmt.Println("(create_order) executing the POST to ", trade_request_url)
+	fmt.Println("(create_order) executing the POST to ", "(", orderIndex, ")", trade_request_url)
 	resp, err := client.Do(request)
 
 	if err != nil {
-		fmt.Println("(create_order) error after executing POST: ")
+		fmt.Println("(create_order) error after executing POST: ", "(", orderIndex, ")")
 		log.Fatalln(err)
+
+		//record as a failure metric
+		recordFailedMetrics()
 	}
 
 	defer resp.Body.Close()
-	fmt.Println("(create_order) reading response body ...")
+	fmt.Println("(create_order) reading response body ...", "(", orderIndex, ")")
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
-		fmt.Println("(create_order) error reading response body: ")
+		fmt.Println("(create_order) error reading response body: ", "(", orderIndex, ")")
 		log.Fatalln(err)
 	}
 
 	sb := string(body)
 
-	fmt.Println("(create_order) got response output: ", sb)
+	fmt.Println("(create_order) got response output: ", "(", orderIndex, ")", sb)
+
+	//record this as a success metric
+	recordSuccessMetrics()
+
 }
 
 //Instrumentation and metrics
@@ -168,16 +175,6 @@ var (
 	requestsFailed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "load_consumer_failed_requests_total",
 		Help: "The total number of failed requests",
-	})
-
-	goJobs = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "load_consumer_concurrent_jobs",
-		Help: "The total number of concurrent jobs per instance",
-	})
-
-	goWorkers = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "load_consumer_concurrent_workers",
-		Help: "The total number of concurrent workers per instance",
 	})
 )
 
@@ -200,20 +197,6 @@ func recordFailedMetrics() {
 		requestsFailed.Inc()
 		time.Sleep(2 * time.Second)
 
-	}()
-}
-
-func recordConcurrentJobs() {
-	go func() {
-		goJobs.Inc()
-		time.Sleep(2 * time.Second)
-	}()
-}
-
-func recordConcurrentWorkers() {
-	go func() {
-		goWorkers.Inc()
-		time.Sleep(2 * time.Second)
 	}()
 }
 
@@ -393,6 +376,8 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 	// the groupID identifies the consumer and prevents
 	// it from receiving duplicate messages
 
+	var orderIndex int = 0
+
 	logMessage := "(consume_payload_data) worker " + strconv.Itoa(id) + " consuming from topic " + topic
 	logger("(consume_payload_data)", logMessage)
 
@@ -417,8 +402,8 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 			log.Fatal(err)
 		}
 
-		fmt.Printf("(consume_payload_data) Received message msgId: %#v -- content: '%s'\n",
-			msg.ID(), string(msg.Payload()))
+		fmt.Printf("(consume_payload_data) Received message msgId: %#v -- content: '%s' (%s)\n",
+			msg.ID(), string(msg.Payload()), strconv.Itoa(orderIndex))
 
 		//message acknowledgment
 		//Do we need this ? Under what conditions ?
@@ -426,38 +411,43 @@ func consume_payload_data(client pulsar.Client, topic string, id int, credential
 
 		message := string(msg.Payload())
 
+		orderIndex++
+
 		err = empty_msg_check(message)
 
 		if err != nil {
 
-			logMessage := "(consume_payload_data) ERROR: empty message (skipping): " + message
+			logMessage := "(consume_payload_data) ERROR: empty message (skipping): " + "(" + strconv.Itoa(orderIndex) + ") " + message
 			logger("(consume_payload_data)", logMessage)
 
 		} else {
+
+			//record this as a metric
+			recordConsumedMetrics()
 
 			err = data_check(message)
 
 			if err != nil {
 
-				fmt.Println("(consume_payload_data) data check error: ", err)
+				fmt.Println("(consume_payload_data) data check error: ", "(", orderIndex, ")", err)
 				//incremement error metric
 				errorCount += 1
-				logMessage := "(consume_payload_data) Error Count: " + strconv.Itoa(errorCount)
+				logMessage := "(consume_payload_data) Error Count: " + "(" + strconv.Itoa(orderIndex) + ")" + strconv.Itoa(errorCount)
 				logger("(consume_payload_data)", logMessage)
 
 			} else {
 
 				//sign the body and create an order (order map[string]string )
-				fmt.Println("(consume_payload_data) converting this json string to map: ", message)
+				fmt.Println("(consume_payload_data) converting this json string to map: ", "(", orderIndex, ")", message)
 				order := jsonToMap(message) //convert the json string to a map[string]string to access the order elements
 
-				fmt.Println("(consume_payload_data) json converted map: ", order)
+				fmt.Println("(consume_payload_data) json converted map: ", "(", orderIndex, ")", order)
 
 				order = updateOrder(order, account, blockWaitAck, userID, clOrdId)
 
-				fmt.Println("(consume_payload_data) updated order details: ", order)
+				fmt.Println("(consume_payload_data) updated order details: ", "(", orderIndex, ")", order)
 
-				create_order(credentials["secret_key"], credentials["api_key"], base_url, order)
+				create_order(credentials["secret_key"], credentials["api_key"], base_url, order, orderIndex)
 
 			}
 		}
