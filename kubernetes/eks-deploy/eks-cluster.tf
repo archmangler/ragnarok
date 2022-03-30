@@ -23,17 +23,17 @@ module "eks" {
   eks_managed_node_group_defaults = {
     ami_type               = "AL2_x86_64"
     disk_size              = 50
-    instance_types         = ["t2.medium"] //","m6i.large", "m5.large", "m5n.large", "m5zn.large"]
+    instance_types         = ["t2.medium"]
     vpc_security_group_ids = [aws_security_group.worker_group_mgmt_one.id, aws_security_group.worker_group_mgmt_two.id]
   }
 
   eks_managed_node_groups = {
     np001 = {
-      min_size       = 3
-      max_size       = 9
-      desired_size   = 6
-      instance_types = ["t2.medium"]
-      disk_size      = 50
+      min_size       = 9
+      max_size       = 18
+      desired_size   = 12
+      instance_types = ["t2.xlarge"]
+      disk_size      = 100
       capacity_type  = "ON_DEMAND"
       labels = {
         Environment = "poc"
@@ -41,9 +41,9 @@ module "eks" {
       }
     }
     np002 = {
-      min_size       = 3
-      max_size       = 9
-      desired_size   = 6
+      min_size       = 6
+      max_size       = 18
+      desired_size   = 12
       instance_types = ["t2.medium"]
       disk_size      = 50
       capacity_type  = "ON_DEMAND"
@@ -53,9 +53,9 @@ module "eks" {
       }
     }
     np003 = {
-      min_size       = 3
-      max_size       = 9
-      desired_size   = 6
+      min_size       = 6
+      max_size       = 18
+      desired_size   = 12
       instance_types = ["t2.medium"]
       disk_size      = 50
       capacity_type  = "ON_DEMAND"
@@ -65,9 +65,9 @@ module "eks" {
       }
     }
     np004 = {
-      min_size       = 3
-      max_size       = 9
-      desired_size   = 6
+      min_size       = 6
+      max_size       = 18
+      desired_size   = 12
       instance_types = ["t2.medium"]
       disk_size      = 50
       capacity_type  = "ON_DEMAND"
@@ -77,9 +77,9 @@ module "eks" {
       }
     }
     np005 = {
-      min_size       = 3
-      max_size       = 9
-      desired_size   = 6
+      min_size       = 6
+      max_size       = 18
+      desired_size   = 12
       disk_size      = 50
       instance_types = ["t2.medium"]
       capacity_type  = "ON_DEMAND"
