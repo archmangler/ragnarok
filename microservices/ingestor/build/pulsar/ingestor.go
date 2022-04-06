@@ -4,10 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/gomodule/redigo/redis"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,6 +12,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 //get running parameters from container environment
@@ -52,51 +53,27 @@ type adminPortal struct {
 
 //Metrics Instrumentation
 var (
-	inputFilesGenerated = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "load_files_generated_total",
-		Help: "The total number of message files generated for input",
+	inputOrdersLoadTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "load_orders_ingested_total",
+		Help: "The total number of orders ingested to redis",
 	})
 
-	inputFileWriteErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "load_files_errors_total",
-		Help: "The total number of input message files generation errors",
-	})
-
-	goJobs = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "load_producer_concurrent_jobs",
-		Help: "The total number of concurrent jobs per instance",
-	})
-
-	goWorkers = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "load_producer_concurrent_workers",
-		Help: "The total number of concurrent workers per instance",
+	inputOrdersLoadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "load_orders_ingesterrors_total",
+		Help: "The total number of orders failed to ingest to redis",
 	})
 )
 
 func recordSuccessMetrics() {
 	go func() {
-		inputFilesGenerated.Inc()
+		inputOrdersLoadTotal.Inc()
 		time.Sleep(2 * time.Second)
 	}()
 }
 
 func recordFailureMetrics() {
 	go func() {
-		inputFileWriteErrors.Inc()
-		time.Sleep(2 * time.Second)
-	}()
-}
-
-func recordConcurrentJobs() {
-	go func() {
-		goJobs.Inc()
-		time.Sleep(2 * time.Second)
-	}()
-}
-
-func recordConcurrentWorkers() {
-	go func() {
-		goWorkers.Inc()
+		inputOrdersLoadErrors.Inc()
 		time.Sleep(2 * time.Second)
 	}()
 }
@@ -492,47 +469,19 @@ func write_binary_message_to_redis(msgCount int, errCount int, msgIndex int, d m
 
 		logger("write_binary_message_to_redis", "#debug (write_binary_message_to_redis): wrote message to redis. count: "+strconv.Itoa(msgCount))
 		//record as a success metric
-		msgCount++
+
 		recordSuccessMetrics()
+		msgCount++
 	}
 
 	return msgCount, errCount
 }
 
-//custom parsing of JSON struct
-//Expected format as read from Pulsar topic: [{ "Name":"newOrder","ID":"14","Time":"1644469469070529888","Data":"ingestor-c7dc569f-8bkql","Eventname":"transactionRequest"}]
-//{"instrumentId":128,"symbol":"BTC/USDC[Infi]","userId":25097,"side":2,"ordType":2,"price":5173054,"price_scale":2,"quantity":61300,"quantity_scale":6,"nonce":1645495020701,"blockWaitAck":0,"clOrdId":""}
-func parseJSONmessage(theString string) map[string]string {
-
-	dMap := make(map[string]string)
-
-	data := Order{}
-
-	json.Unmarshal([]byte(theString), &data)
-
-	dMap["instrumentId"] = fmt.Sprint(data.InstrumentId)
-	dMap["symbol"] = string(data.Symbol)
-	dMap["userId"] = fmt.Sprint(data.UserId)
-	dMap["side"] = fmt.Sprint(data.Side)
-	dMap["ordType"] = fmt.Sprint(data.OrdType)
-	dMap["price"] = fmt.Sprint(data.Price)
-	dMap["price_scale"] = fmt.Sprint(data.Price_scale)
-	dMap["quantity"] = fmt.Sprint(data.Quantity)
-	dMap["quantity_scale"] = fmt.Sprint(data.Quantity_scale)
-	dMap["nonce"] = fmt.Sprint(data.Nonce)
-	dMap["blockWaitAck"] = fmt.Sprint(data.BlockWaitAck)
-	dMap["clOrdId"] = string(data.ClOrdId)
-
-	fmt.Println("field extraction: ", dMap)
-
-	return dMap
-}
-
 func main() {
 
 	/*
-		[] curl endpoint to trigger data load
-		[] put load status to readable endpoint
+		[x] curl endpoint to trigger data load
+		[x] put load status to readable endpoint
 	*/
 
 	//set up the metrics and management endpoint
@@ -557,7 +506,7 @@ func main() {
 	err := http.ListenAndServe(port_specifier, nil)
 
 	if err != nil {
-		fmt.Println("Could not start the metrics endpoint: ", err)
+		fmt.Println("Could not start http service endpoint: ", err)
 	}
 
 }

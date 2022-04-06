@@ -10,6 +10,7 @@
 #export AWS_DEPLOY_REGION="ap-southeast-1"
 #export AWS_CLUSTER_NAME="ragnarok-eks-mjollner-poc"
 #export AWS_ACCOUNT_NUMBER="524513049339"
+AWS_ACCOUNT_NUMBER=$(aws sts get-caller-identity | jq -r .Account | xargs)
 
 #curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.1/docs/install/iam_policy.json
 
@@ -28,9 +29,9 @@ function create_iam_policy () {
 }
 
 function delete_iam_service_account () {
-  OUT=$(eksctl delete iamserviceaccount --namespace=kube-system --cluster=${AWS_CLUSTER_NAME} --name=aws-load-balancer-controller --region ${AWS_DEPLOY_REGION})
+  OUT=$(eksctl delete iamserviceaccount --namespace=kube-system --cluster=${AWS_CLUSTER_NAME} --name=aws-load-balancer-controller --region ${AWS_DEPLOY_REGION} --verbose 9)
   printf "Deleting old serviceaccount: $OUT\n"
-  for i in `seq 1 3`
+  for i in `seq 1 9`
   do
     OUT=$(kubectl get serviceaccounts -n kube-system| egrep "aws-load-balancer-controller")
     printf "checking: $OUT\n"
@@ -45,25 +46,29 @@ function create_iam_service_account () {
     --namespace=kube-system \
     --name=aws-load-balancer-controller \
     --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT_NUMBER}:policy/AWSLoadBalancerControllerIAMPolicy \
-    --override-existing-serviceaccounts \
     --approve \
     --region ${AWS_DEPLOY_REGION}"
+#    --override-existing-serviceaccounts \
 
   OUT=$(eksctl create iamserviceaccount \
     --cluster=${AWS_CLUSTER_NAME}  \
     --namespace=kube-system \
     --name=aws-load-balancer-controller \
     --attach-policy-arn=arn:aws:iam::${AWS_ACCOUNT_NUMBER}:policy/AWSLoadBalancerControllerIAMPolicy \
-    --override-existing-serviceaccounts \
     --approve \
-    --region ${AWS_DEPLOY_REGION})
-
+    --region ${AWS_DEPLOY_REGION} --verbose 5)
+#    --override-existing-serviceaccounts \
   printf "OUTPUT:$OUT\n"
 }
 
 function uninstall_alb () {
   #first uninstall
   helm uninstall aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system
+  for i in `seq 1 10`
+  do
+    printf "waiting ..."
+    sleep 2
+  done
 }
 
 function install_alb () {

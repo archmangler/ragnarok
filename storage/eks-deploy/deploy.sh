@@ -18,5 +18,5 @@ function create_eks_storage_access() {
   eksctl create iamserviceaccount --cluster=$AWS_CLUSTER_NAME --name=eks-s3-access --namespace=$namespace --attach-policy-arn="$POLICY_ARN" --approve --override-existing-serviceaccounts
 }
 
-#s3_deploy
+s3_deploy
 create_eks_storage_access

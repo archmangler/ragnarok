@@ -11,21 +11,21 @@ variable "worker_group_mgmt_one_ingress_rules" {
       from_port   = 0 
       to_port     = 65434
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "elb requirement"
     },
     {
       from_port   = 22
       to_port     = 22
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "core requirement"
     },
     {
       from_port   = 10250
       to_port     = 10250
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "core requirement"
     },
   ]
@@ -51,14 +51,14 @@ variable "worker_group_mgmt_two_ingress_rules" {
       from_port   = 22
       to_port     = 22
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "core requirement"
     },
     {
       from_port   = 10250
       to_port     = 10250
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "core requirement"
     },
   ]
@@ -84,14 +84,14 @@ variable "all_worker_mgmt_ingress_rules" {
       from_port   = 22
       to_port     = 22
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "core requirement"
     },
     {
       from_port   = 10250
       to_port     = 10250
       protocol    = "tcp"
-      cidr_block  = "10.0.0.0/8"
+      cidr_block  = "192.0.0.0/8"
       description = "core requirement"
     },
   ]
@@ -261,7 +261,7 @@ resource "aws_security_group" "worker_group_mgmt_one" {
     protocol  = "tcp"
 
     cidr_blocks = [
-      "10.0.0.0/8",
+      "192.0.0.0/8",
     ]
   }
 */
@@ -279,7 +279,7 @@ resource "aws_security_group" "worker_group_mgmt_two" {
     protocol  = "tcp"
 
     cidr_blocks = [
-      "192.168.0.0/16",
+      "192.0.0.0/16",
     ]
   }
 */
@@ -299,13 +299,14 @@ resource "aws_security_group" "all_worker_mgmt" {
     cidr_blocks = [
       "10.0.0.0/8",
       "172.16.0.0/12",
-      "192.168.0.0/16",
+      "192.0.0.0/8",
     ]
   }
 */
 
 }
 
+//If you have EFS storage somewhere
 /*
 resource "aws_security_group" "efs" {
    name = "${local.cluster_name}-efs-sg"

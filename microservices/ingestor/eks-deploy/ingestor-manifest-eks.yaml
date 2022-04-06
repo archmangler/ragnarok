@@ -19,7 +19,7 @@ spec:
       serviceAccountName: eks-s3-access
       containers:
       - name: ingestor
-        image: archbungle/ingestor:pulsar-0.0.21
+        image: archbungle/ingestor:pulsar-0.0.26
         imagePullPolicy: IfNotPresent
         env:
         - name: S3_BUCKET_ADDRESS

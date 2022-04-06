@@ -53,7 +53,7 @@ function remove_load_balancers () {
   for i in `aws elbv2 describe-load-balancers --region $region --query "LoadBalancers[?VpcId=='$vpc']|[].LoadBalancerArn" | jq -r '.[]'`
   do
     printf "will delete elb> $i"
-    #OUT=$(aws elbv2 delete-load-balancer --load-balancer-arn $i --region $region)
+    OUT=$(aws elbv2 delete-load-balancer --load-balancer-arn $i --region $region)
     printf "\nDELETED ELB> $OUT\n"
   done
 }
@@ -63,20 +63,22 @@ function delete_ec2_instances () {
   for i in `aws ec2 describe-instances --region $region --filters "Name=vpc-id,Values=$vpc" --query "Reservations[].Instances[].InstanceId" | jq -r '.[]'`
   do
    echo "delete ec2 instances> $i"
-   #aws ec2 terminate-instances --instance-ids $i --region $region
+   echo "aws ec2 terminate-instances --instance-ids $i --region $region"
   done
 }
 
 function delete_asgs () {
   for i in `aws autoscaling describe-auto-scaling-groups --region $region --filters "Name=vpc-id,Values=$vpc" | jq -r '.[]|.[]|.AutoScalingGroupName'`
-    do echo "delete autoscaling groups> $i" #- $(aws autoscaling delete-auto-scaling-group --auto-scaling-group-name $i --region $region)
+    do echo "delete autoscaling groups> $i"
+    #- $(aws autoscaling delete-auto-scaling-group --auto-scaling-group-name $i --region $region)
   done
 }
 
 function delete_launch_configurations () {
   for i in `aws autoscaling describe-launch-configurations --region $region | jq '."LaunchConfigurations"|.[]."LaunchConfigurationName"'|jq -r ''`
   do
-    echo "deleting launch configuration> $i" #aws autoscaling delete-launch-configuration --launch-configuration-name $i --filters "Name=vpc-id,Values=$vpc" --region $region
+    echo "deleting launch configuration> $i" 
+    #aws autoscaling delete-launch-configuration --launch-configuration-name $i --filters "Name=vpc-id,Values=$vpc" --region $region
   done
 }
 
@@ -90,15 +92,15 @@ function delete_vpc () {
     printf "$OUT\n"
 }
 
-#delete load balancer dependency
+##delete load balancer dependency
 #list_all_dependents
-remove_nat_gw
-delete_ec2_instances
+#remove_nat_gw
 #delete_launch_configurations
-#delete_asgs
-remove_security_groups
-remove_load_balancers
-remove_network_interfaces
-fixup_state
-delete_vpc
+#delete_ec2_instances
+delete_asgs
+#remove_security_groups
+#remove_load_balancers
+#remove_network_interfaces
+#fixup_state
+#delete_vpc
 #list_all_dependents

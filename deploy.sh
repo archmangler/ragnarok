@@ -219,6 +219,16 @@ function deploy_source_data_storage () {
   cd $mycwd
 }
 
+#microservices/ingestor/eks-deploy
+function deploy_data_ingestor () {
+  mycwd=`pwd`
+  cd microservices/ingestor/eks-deploy && ./deploy.sh
+  cd $mycwd
+}
+
+#microservices/ingestor/eks-deploy
+
+
 #Deployment to Azure Cloud
 deploy_kubernetes_cluster
 create_namespaces
@@ -237,3 +247,4 @@ deploy_producer_service
 deploy_consumer_service
 deploy_loader_service
 deploy_source_data_storage
+deploy_data_ingestor

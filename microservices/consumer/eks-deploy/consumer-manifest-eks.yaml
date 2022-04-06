@@ -7,7 +7,7 @@ spec:
   selector:
     matchLabels:
       app: consumer
-  replicas: 1
+  replicas: 20
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -22,7 +22,7 @@ spec:
 #        agentpool: np003
       containers:
       - name: consumer
-        image: archbungle/load-consumer:pulsar-0.0.40d30
+        image: archbungle/load-consumer:pulsar-0.0.40d35
         imagePullPolicy: IfNotPresent
         env:
         - name: API_BASE_URL

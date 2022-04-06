@@ -117,6 +117,11 @@ var (
 		Help: "The total number of input message files generation errors",
 	})
 
+	assignedOrders = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "orders_allocated_workers_total",
+		Help: "The total number of loaded orders allocated to worker processes",
+	})
+
 	goJobs = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "load_producer_concurrent_jobs",
 		Help: "The total number of concurrent jobs per instance",
@@ -152,6 +157,13 @@ func recordConcurrentJobs() {
 func recordConcurrentWorkers() {
 	go func() {
 		goWorkers.Inc()
+		time.Sleep(2 * time.Second)
+	}()
+}
+
+func recordAssignedOrders() {
+	go func() {
+		assignedOrders.Inc()
 		time.Sleep(2 * time.Second)
 	}()
 }
@@ -253,6 +265,7 @@ func update_management_data_redis(dataIndex string, input_data []string, conn re
 		if err != nil {
 			fmt.Println("failed - LPUSH put data to redis: ", data, err.Error())
 		} else {
+			recordAssignedOrders()
 			fmt.Println("ok - LPUSH put data to redis: ", data)
 		}
 
@@ -1529,6 +1542,7 @@ func dump_pulsar_messages_to_input(pulsarTopic string, msgStartSeq int64, msgSto
 }
 
 //BEGIN: Data loading code
+//Can we avoid this? It's slow ...
 func purgeProcessedRedis(conn redis.Conn) {
 	//purge the originally loaded data once processed into db 0
 
@@ -1798,7 +1812,8 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 	if taskCount == numWorkers-1 || taskCount == numWorkers {
 		//delete (or move) all processed files in DB  3
 		//from Redis to somewhere else once they've been processed
-		purgeProcessedRedis(conn)
+		fmt.Println("(process_input_data_redis_concurrent) purging processed redis data")
+		//purgeProcessedRedis(conn)
 	}
 
 }

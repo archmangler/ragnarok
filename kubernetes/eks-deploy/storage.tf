@@ -77,7 +77,6 @@ resource "aws_iam_role" "source_role_eks" {
 }
 
 #Attach policy to role
-/*
 resource "aws_iam_role_policy_attachment" "source_bucket_policy" {
   role       = aws_iam_role.source_role.name
   policy_arn = aws_iam_policy.source_policy.arn
@@ -88,19 +87,17 @@ resource "aws_iam_instance_profile" "source_profile" {
   name = "source_profile_dataops"
   role = aws_iam_role.source_role.name
 }
-*/
 
 //EC2 Data Loading / staging instance
-/*
 resource "aws_instance" "data_ops_staging" {
-  subnet_id = module.vpc.public_subnets[1]
+  subnet_id                   = module.vpc.public_subnets[1]
   associate_public_ip_address = true
-  ami           = "ami-0f74c08b8b5effa56" //"ami-03abf47a104b960b4"
-  instance_type = "t2.medium"
+  ami                         = "ami-0f74c08b8b5effa56" //"ami-03abf47a104b960b4"
+  instance_type               = "t2.medium"
 
   key_name = "data_ops_key_staging"
 
-//  security_groups = [ aws_security_group.worker_group_mgmt_one.id]
+  //  security_groups = [ aws_security_group.worker_group_mgmt_one.id]
   security_groups = [aws_security_group.all_worker_mgmt.id, aws_security_group.worker_group_mgmt_two.id, aws_security_group.worker_group_mgmt_one.id]
 
   iam_instance_profile = aws_iam_instance_profile.source_profile.id
@@ -121,7 +118,6 @@ resource "aws_key_pair" "data_ops" {
   public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDACyG2S7IJ1acCqWzCX3fYSN5aMZ6YzQKDbkhypYeQHUbe6hgJpzG9oiOHLgO6n7c33Km7Rh5Q+rzg7deyO5OWsKh1pXLrryeyIJXpQV9+sJnxYhxpAFh7bremQya1UIryAQ5NJGdxQDWKmX2QsuroAEa8RK2PiVIvB6EOfA6twfd/HvO5Ez0w2APiD+N5VS3AUjVJ0myaTYOFdVtauJj/Ix3Kzdo67dZ5K2iyK+d/J5L1IXJghxp98/UYGtIBpoFOFVgd/u+MoSln5Ey6JpMkp73vPu7iqR2gcJKJxxhEzH2dwYcnGmOhP7evaERBy7wJQ7nF7nbBi7SPtpnJyXAwrprLfUzKePIXUzBR3kMEZ1oIZoL3bSDJrFFbrc/if24rS1KYtGr2w2v3Issedc5Wwi9ERl8GVp7BEYVJQQOjAmXfEDafDC6MlAyZDbetE1MeEehC1w4R8Yjldxj8Ur1wfY0hHy9MpTo6CzvgskqP4w9YYOvN547HoyC0meF1dT04w9UMiA9on+fD+SatbQLc5TluhDd9xX9cOXG2RUTzNuZyG3ghXkcey0p7eyzRkY+xszeSN4d9TJRaxY4Dc1LyUgHhkky8XQTrLFhOkG8hDjYzlRAlQn6o8v0Toqaj2cNbySm4H0j4BNuC9j/uAc+mvYlIr1WVaH8sh/XKmeHoYw== traiano.welcome.contractor@accenture.com"
 }
 
-*/
 
 //Accessing S3 (from EC2 instance with correct policy):
 //List      : aws s3 ls s3://eqnx-tradedata-source --recursive --human-readable --summarize

@@ -23,9 +23,10 @@ import (
 )
 
 //get running parameters from container environment
-var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))       //20
-var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS")) //20
+var numJobs, _ = strconv.Atoi(os.Getenv("NUM_JOBS"))   //20
+var debug, _ = strconv.Atoi(os.Getenv("DEBUG_ENABLE")) // 1=true , 0=false
 
+var numWorkers, _ = strconv.Atoi(os.Getenv("NUM_WORKERS"))            //20
 var pulsarBrokerURL = os.Getenv("PULSAR_BROKER_SERVICE_ADDRESS")      // e.g "pulsar://pulsar-mini-broker.pulsar.svc.cluster.local:6650"
 var subscriptionName = os.Getenv("PULSAR_CONSUMER_SUBSCRIPTION_NAME") //e.g sub002
 var primaryTopic string = os.Getenv("MESSAGE_TOPIC")                  // "messages"
@@ -134,14 +135,12 @@ func recordConcurrentResults() {
 }
 
 func logger(logFile string, logMessage string) {
-
-	now := time.Now()
-	msgTimestamp := now.UnixNano()
-
-	logMessage = strconv.FormatInt(msgTimestamp, 10) + " [host=" + hostname + "]" + logMessage + " " + logFile
-
-	fmt.Println(logMessage)
-
+	if debug == 1 {
+		now := time.Now()
+		msgTimestamp := now.UnixNano()
+		logMessage = strconv.FormatInt(msgTimestamp, 10) + " [host=" + hostname + "]" + logMessage + " " + logFile
+		fmt.Println(logMessage)
+	}
 }
 
 func check_errors(e error, jobId int) {
@@ -172,14 +171,18 @@ func purgeProcessedRedis(conn redis.Conn) {
 		if err != nil {
 			fmt.Printf("Failed removing original input data from redis: %s\n", err)
 		} else {
-			fmt.Printf("deleted input %s -> %s\n", input_id, result)
+
+			if debug == 1 {
+				fmt.Printf("deleted input %s -> %s\n", input_id, result)
+			}
+
 			purged = append(purged, input_id)
 		}
 
 		purgeCntr++
 	}
 
-	logger(logFile, "purged files: "+strings.Join(purged, ",")+" total "+strconv.Itoa(purgeCntr))
+	logger("(purgeProcessedRedis)", "purged files: "+strings.Join(purged, ",")+" total "+strconv.Itoa(purgeCntr))
 }
 
 func purgeProcessedMetadataRedis(conn redis.Conn) {
@@ -191,10 +194,16 @@ func purgeProcessedMetadataRedis(conn redis.Conn) {
 	response, err := conn.Do("SELECT", dbIndex)
 
 	if err != nil {
-		fmt.Println("can't connect to redis metadata db: ", dbIndex)
+
+		if debug == 1 {
+			fmt.Println("can't connect to redis metadata db: ", dbIndex)
+		}
+
 		panic(err)
 	} else {
-		fmt.Println("redis select db response: ", response, " db index = ", dbIndex)
+		if debug == 1 {
+			fmt.Println("redis select db response: ", response, " db index = ", dbIndex)
+		}
 	}
 
 	result, err := conn.Do("DEL", hostname)
@@ -202,7 +211,9 @@ func purgeProcessedMetadataRedis(conn redis.Conn) {
 	if err != nil {
 		fmt.Printf("Failed removing work allocation entry for %s from redis: %s\n", hostname, err.Error())
 	} else {
-		fmt.Printf("deleted work allocation entry for %s -> %s\n", hostname, result)
+		if debug == 1 {
+			fmt.Printf("deleted work allocation entry for %s -> %s\n", hostname, result)
+		}
 	}
 
 	//ensure we switch back to the default db background ...
@@ -226,7 +237,7 @@ func purgeProcessed() {
 		purgeCntr++
 	}
 
-	logger(logFile, "purged processed files: "+strconv.Itoa(purgeCntr))
+	logger("(purgeProcessedRedis)", "purged processed files: "+strconv.Itoa(purgeCntr))
 }
 
 func MoveFile(sourcePath string, destPath string) error {
@@ -267,15 +278,15 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 	err = nil
 
 	//select correct DB
-	fmt.Println("select redis db: ", 0)
+
+	if debug == 1 {
+		fmt.Println("select redis db: ", 0)
+	}
 
 	conn.Do("SELECT", 0)
 
-	//build the message body inputs for json
-	//	_, err = conn.Do("HMSET", msgIndex, "instrumentId", InstrumentId, "symbol", Symbol, "userId", UserId, "side", Side, "ordType", OrdType, "price", Price, "price_scale", Price_scale, "quantity", \
-	// Quantity, "quantity_scale", Quantity_scale, "nonce", Nonce, "blockWaitAck", BlockWaitAck, "clOrdId", ClOrdId)
-
 	InstrumentId, err := redis.String(conn.Do("HGET", input_id, "instrumentId"))
+
 	if err != nil {
 		fmt.Println("oops, got this: ", err, " skipping ", input_id)
 		return input_id, err
@@ -369,7 +380,9 @@ func readFromRedis(input_id string, conn redis.Conn) (ds string, err error) {
 		`","blockWaitAck,":"` + BlockWaitAck +
 		`","clOrdId":"` + ClOrdId + `"}]`
 
-	fmt.Println("got msg from redis ->", msgPayload, "<-")
+	if debug == 1 {
+		fmt.Println("got msg from redis ->", msgPayload, "<-")
+	}
 
 	//get all the required data for the input id and return as json string
 	return msgPayload, err
@@ -384,7 +397,9 @@ func check_payload_data(payload string) (e error) {
 	if len(payload) == 0 {
 		return errors.New("skip empty message to message queue: " + payload)
 	} else {
-		fmt.Println("check message content nonzero: ", len(payload))
+		if debug == 1 {
+			fmt.Println("check message content nonzero: ", len(payload))
+		}
 	}
 
 	return nil
@@ -439,7 +454,9 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 	if err != nil {
 		panic(err)
 	} else {
-		fmt.Println("redis auth response: ", response)
+		if debug == 1 {
+			fmt.Println("redis auth response: ", response)
+		}
 	}
 
 	defer conn.Close()
@@ -467,7 +484,9 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 			recordLoadedMetrics()
 
 			//keep a list of completed input jobs per worker process
+			mutex.Lock()
 			readFileList[workerId] = append(readFileList[workerId], input_id)
+			mutex.Unlock()
 
 		}
 
@@ -489,8 +508,9 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 		purgeMap[input_id] = input_id
 		mutex.Unlock()
 
-		fmt.Println("completed job: ", jobId)
-
+		if debug == 1 {
+			fmt.Println("completed job: ", jobId)
+		}
 	}
 
 	logger(logFile, "completing task: "+strconv.Itoa(taskCount))
@@ -503,8 +523,15 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 	logger(logFile, "completed task: "+strconv.Itoa(taskCount))
 
 	//Summarise the work completed by this worker:
-	for k, v := range readFileList {
-		logger(logFile, "[#debug-1] worker process: "+strconv.Itoa(k)+" completed tasks: "+strings.Join(v, ","))
+	if debug == 1 {
+
+		mutex.Lock()
+
+		for k, v := range readFileList {
+			logger(logFile, "[#debug-1] worker process: "+strconv.Itoa(k)+" completed tasks: "+strings.Join(v, ","))
+		}
+
+		mutex.Unlock()
 	}
 
 	//please fix this!!
@@ -512,7 +539,9 @@ func process_input_data_redis_concurrent(workerId int, jobId int) {
 		//delete (or move) all processed files from Redis to somewhere else
 		//purgeProcessedRedis(conn)
 
-		fmt.Println("(process_input_data_redis_concurrent) skipping purge")
+		if debug == 1 {
+			fmt.Println("(process_input_data_redis_concurrent) purging work allocation table")
+		}
 
 		//then remove the work allocation entry in Redis
 		//purgeProcessedMetadataRedis(conn)
@@ -569,7 +598,9 @@ func process_input_data_redis(workerId int) {
 	if err != nil {
 		panic(err)
 	} else {
-		fmt.Println("redis auth response: ", response)
+		if debug == 1 {
+			fmt.Println("redis auth response: ", response)
+		}
 	}
 
 	defer conn.Close()
@@ -623,8 +654,10 @@ func process_input_data_redis(workerId int) {
 
 	if taskCount == numWorkers-1 {
 		//delete (or move) all processed files from Redis to somewhere else
-		purgeProcessedRedis(conn)
-		fmt.Println("(process_input_data_redis) skipping purge redis ...")
+		//purgeProcessedRedis(conn)
+		if debug == 1 {
+			fmt.Println("(process_input_data_redis) skipping purge redis ...")
+		}
 	}
 }
 
@@ -724,14 +757,19 @@ func produce(message string, producer pulsar.Producer, ctx context.Context, topi
 		recordFailedMetrics()
 
 		log.Fatal(err)
+
 	} else {
 
-		log.Println("Published message: ", msgId)
+		if debug == 1 {
+			log.Println("Published message: ", msgId)
+		}
 
 		//record this as a success metric
 		recordSubmittedMetrics()
 
-		fmt.Println("wrote payload to topic: ", topic)
+		if debug == 1 {
+			fmt.Println("wrote payload to topic: ", topic)
+		}
 
 	}
 
@@ -785,7 +823,9 @@ func idAllocator(taskMap map[int][]string, numWorkers int) (m map[string][]strin
 	element := 0
 
 	//print out incoming taskMap
-	fmt.Println("#debug1 (idAllocator): received incoming tasks map", taskMap)
+	if debug == 1 {
+		fmt.Println("#debug1 (idAllocator): received incoming tasks map", taskMap)
+	}
 
 	for i := 1; i <= numWorkers; i++ {
 		taskID := strconv.Itoa(i)
@@ -795,7 +835,9 @@ func idAllocator(taskMap map[int][]string, numWorkers int) (m map[string][]strin
 		logger(logFile, logMessage)
 	}
 
-	fmt.Println("#debug1 (idAllocator): created assigned task map", tMap)
+	if debug == 1 {
+		fmt.Println("#debug1 (idAllocator): created assigned task map", tMap)
+	}
 
 	return tMap
 }
@@ -828,7 +870,9 @@ func divide_and_conquer(inputs []string, numWorkers int, numJobs int) (m map[str
 	}
 
 	//debugging
-	fmt.Println("#debug (divide_and_conquer): index: " + strconv.Itoa(j) + " size: " + strconv.Itoa(size) + " assignment iterations: " + strconv.Itoa(lc) + " number of workers: " + strconv.Itoa(numWorkers))
+	if debug == 1 {
+		fmt.Println("#debug (divide_and_conquer): index: " + strconv.Itoa(j) + " size: " + strconv.Itoa(size) + " assignment iterations: " + strconv.Itoa(lc) + " number of workers: " + strconv.Itoa(numWorkers))
+	}
 
 	tMap := idAllocator(tempMap, numWorkers)
 
@@ -849,17 +893,23 @@ func getWorkAllocation(inputId string, conn redis.Conn) (ds []string, err error)
 
 	if err != nil {
 
-		fmt.Println("OOPS, got this for workload: ", err, " skipping ", inputId)
+		if debug == 1 {
+			fmt.Println("OOPS, got this for workload: ", err, " skipping ", inputId)
+		}
 
 		return msgPayload, err
 
 	} else {
 
-		fmt.Println("OK - got this work list: ", msgPayload)
+		if debug == 1 {
+			fmt.Println("OK - got this work list: ", msgPayload)
+		}
 
 	}
 
-	fmt.Println("OK - returning this work list: ", msgPayload)
+	if debug == 1 {
+		fmt.Println("OK - returning this work list: ", msgPayload)
+	}
 
 	return msgPayload, err
 }
@@ -879,7 +929,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	} else {
-		fmt.Println("redis auth response: ", response)
+
+		if debug == 1 {
+			fmt.Println("redis auth response: ", response)
+		}
+
 	}
 
 	//connect to a separately assigned db/namespace in redis
@@ -887,10 +941,16 @@ func main() {
 	response, err = conn.Do("SELECT", dbIndex)
 
 	if err != nil {
-		fmt.Println("can't connect to redis namespace: ", dbIndex)
+
+		if debug == 1 {
+			fmt.Println("can't connect to redis namespace: ", dbIndex)
+		}
+
 		panic(err)
 	} else {
-		fmt.Println("redis select work allocation db response: ", response, dbIndex)
+		if debug == 1 {
+			fmt.Println("redis select work allocation db response: ", response, dbIndex)
+		}
 	}
 
 	//Use defer to ensure the connection is always
@@ -899,14 +959,21 @@ func main() {
 
 	workAllocation, err := getWorkAllocation(hostname, conn) //get the assigned work for this worker
 
-	fmt.Println("work allocation returned: ", workAllocation)
-
-	if err != nil {
-		fmt.Println("WARNING: could not get work allocation for pod: ", hostname)
-	} else {
-		fmt.Println("OK - got work allocation: ", workAllocation)
+	if debug == 1 {
+		fmt.Println("work allocation returned: ", workAllocation)
 	}
 
+	if err != nil {
+		if debug == 1 {
+			fmt.Println("WARNING: could not get work allocation for pod: ", hostname)
+		}
+
+	} else {
+
+		if debug == 1 {
+			fmt.Println("OK - got work allocation: ", workAllocation)
+		}
+	}
 	//??? inputQueue := read_input_sources_redis(workAllocation) //Alternatively, get the total list of input data files from redis instead
 
 	taskMap = divide_and_conquer(workAllocation, numWorkers, numJobs) //get the allocation of workers to task-sets
@@ -927,12 +994,9 @@ func main() {
 	}()
 
 	for w := 1; w <= numWorkers; w++ {
-
 		go worker(w, jobs, results)
-
 		//record as metric
 		recordConcurrentWorkers()
-
 	}
 
 	for j := 1; j <= numJobs; j++ {

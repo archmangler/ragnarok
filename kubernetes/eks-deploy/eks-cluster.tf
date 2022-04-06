@@ -7,7 +7,6 @@ module "eks" {
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-
   cluster_addons = {
     coredns = {
       resolve_conflicts = "OVERWRITE"
@@ -29,63 +28,68 @@ module "eks" {
 
   eks_managed_node_groups = {
     np001 = {
-      min_size       = 9
-      max_size       = 18
-      desired_size   = 12
+      min_size       = 6 
+      max_size       = 12 
+      desired_size   = 9
       instance_types = ["t2.xlarge"]
       disk_size      = 100
       capacity_type  = "ON_DEMAND"
       labels = {
         Environment = "poc"
         function    = "management"
+        Project = "ragnarok"
       }
     }
     np002 = {
       min_size       = 6
-      max_size       = 18
-      desired_size   = 12
-      instance_types = ["t2.medium"]
+      max_size       = 12
+      desired_size   = 9
+      instance_types = ["t2.xlarge"]
       disk_size      = 50
       capacity_type  = "ON_DEMAND"
       labels = {
         Environment = "poc"
         function    = "producers"
+        Project = "ragnarok"
       }
     }
     np003 = {
       min_size       = 6
-      max_size       = 18
-      desired_size   = 12
-      instance_types = ["t2.medium"]
+      max_size       = 12
+      desired_size   = 9
+      instance_types = ["t2.xlarge"]
       disk_size      = 50
       capacity_type  = "ON_DEMAND"
       labels = {
         Environment = "poc"
         function    = "pulsar"
+        Project = "ragnarok"
       }
     }
     np004 = {
       min_size       = 6
-      max_size       = 18
-      desired_size   = 12
-      instance_types = ["t2.medium"]
+      max_size       = 12
+      desired_size   = 9
+      instance_types = ["t2.xlarge"]
       disk_size      = 50
       capacity_type  = "ON_DEMAND"
       labels = {
         Environment = "poc"
         function    = "consumers"
+        Project = "ragnarok"
       }
     }
     np005 = {
       min_size       = 6
-      max_size       = 18
-      desired_size   = 12
+      max_size       = 12
+      desired_size   = 9
       disk_size      = 50
-      instance_types = ["t2.medium"]
+      instance_types = ["t2.xlarge"]
       capacity_type  = "ON_DEMAND"
       labels = {
         Environment = "poc"
         function    = "storage"
+        Project = "ragnarok"
       }
     }
 
